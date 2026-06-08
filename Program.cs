@@ -12,7 +12,6 @@ using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
-using HidSharp.Utility;
 using Hp.Bridge.Client.SDKs.PerformanceControl.DataStructure;
 using HP.Omen.Core.Model.Device.Enums;
 using HP.Omen.Core.Model.Device.Models;
@@ -47,11 +46,11 @@ namespace OmenSuperHub {
     static LightingControlInterface lbControlInterface = LightingControlInterface.Dojo;
     static int DBVersion = 2, countDB = 0, countDBInit = 5, tryTimes = 0, CPULimitDB = 25;
     static ToolStripMenuItem DBMenu;
-    static int textSize = 48;
+    static int textSize = 40;
     static int countRestore = 0, gpuClock = 0;
     static int alreadyRead = 0, alreadyReadCode = 1000;
     static string currentPreset = "PresetCustom1", presetCustom1Name = Strings.PresetCustom1, presetCustom2Name = Strings.PresetCustom2, presetCustom3Name = Strings.PresetCustom3;
-    static string fanTable = "cool", fanControl = "auto", tempSensitivity = "high", tppPower = "null", iccMax = "null", acLoadline = "null", cpuPower = "null", tgpPower = "on", ppabPower = "on", dState = "normal", autoStart = "off", customIcon = "original", floatingBar = "off", floatingBarLoc = "left", omenKey = "default", dataLocalize = "off", appLanguage = "zh-CN";
+    static string fanTable = "cool", fanControl = "auto", tempSensitivity = "high", tppPower = "null", iccMax = "null", acLoadline = "null", cpuPower = "null", tgpPower = "on", ppabPower = "on", dState = "normal", autoStart = "off", customIcon = "original", floatingBar = "off", floatingBarLoc = "left", floatingBarScreen = "", omenKey = "default", dataLocalize = "off", appLanguage = "zh-CN", autoFanProtect = "on";
     static volatile bool monitorFan = false;
     static bool skipCheckedUpdate = false; // action 内拦截时置 true，阻止 CreateMenuItem 覆盖勾选
     static bool powerOnline = SystemInformation.PowerStatus.PowerLineStatus == PowerLineStatus.Online;
@@ -88,13 +87,14 @@ namespace OmenSuperHub {
     static ToolStripMenuItem ambientSensorMenu;
     static ToolStripMenuItem pchSensorMenu;
     static ToolStripMenuItem vrSensorMenu;
-    static ToolStripTrackBar fanTrackBar, cpuPowerTrackBar, tppTrackBar, gpuClockTrackBar;
-    static ToolStripMenuItem fanValueLabel, cpuPowerValueLabel, tppValueLabel, gpuClockValueLabel;
+    static ToolStripTrackBar fanTrackBar, cpuPowerTrackBar, tppTrackBar, gpuClockTrackBar, textSizeTrackBar;
+    static ToolStripMenuItem fanValueLabel, cpuPowerValueLabel, tppValueLabel, gpuClockValueLabel, textSizeLabel;
 
     static bool Is3FanNb = false, isFanCleanSupported = false, isFanLegacyCleanSupported = false;
     static bool isSysInfoMenuOpen = false;
     static string systemSSID;
     static bool supportAni = false, supportDojo = false, supportLightbar = false;
+    static bool isCPUPowerControlSupported = false;
     static DeviceEnums.DeviceType deviceType;
     static PlatformSettings platformSettings;
     static GraphicsSwitcherMode NvGraphicsMode;
@@ -174,10 +174,12 @@ namespace OmenSuperHub {
         kbType = GetKeyboardType();
         systemSSID = DeviceModel.ThisSystemID; // DeviceModel.OmenPlatform.Name
         deviceType = DeviceModel.DeviceType;
+        //isCPUPowerControlSupported = IsPowerControlSupported(deviceType); // 似乎不准确
         string sku = PerformanceControlHelper.GetPlatformSku(isInit: true);
         platformSettings = PerformanceControlHelper.GetPlatformSettings(deviceType.ToString(), sku);
         if (platformSettings != null) {
           currentPreset = "PresetExtreme";
+          isCPUPowerControlSupported = true;
         }
         if (FourZoneSupportHelper.IsAnimationSupported(kbType, deviceType)) {
           supportAni = true;
@@ -293,7 +295,23 @@ namespace OmenSuperHub {
         //Console.WriteLine($"IsIntelGraphics: {OmenHsaClient.IsIntelGraphics()}");
 
         Logger.Info($"version: {version}");
+        SetBrowserEmulationForWebBrowser();
         Application.Run();
+      }
+    }
+
+    private static void SetBrowserEmulationForWebBrowser() {
+      string appName = Process.GetCurrentProcess().ProcessName + ".exe";
+      using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION", true)) {
+        if (key == null) {
+          // 如果键不存在则创建
+          Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION");
+          using (var newKey = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION", true)) {
+            newKey?.SetValue(appName, 11001, RegistryValueKind.DWord);
+          }
+        } else {
+          key.SetValue(appName, 11001, RegistryValueKind.DWord);
+        }
       }
     }
 
@@ -954,7 +972,7 @@ namespace OmenSuperHub {
               UpdateCheckedState("DBGroup", Strings.DbNormal);
             } else {
               SetGpuPowerState(true, true);
-              if (platformSettings != null)
+              if (isCPUPowerControlSupported)
                 SetCpuPowerLimit((byte)CPULimitDB);
               countDB = countDBInit;
             }
@@ -1085,7 +1103,7 @@ namespace OmenSuperHub {
         GPUTemp = (tempDisplayMode == "raw") ? rawTempGPU : smoothedGPUTemp;
 
       int currentMaxCPUTemp = maxCPUTemp ?? 97;
-      if (platformMaxFanSpeed.HasValue && (monitorCPU || monitorGPU) && smoothedCPUTemp > currentMaxCPUTemp - 2 && fanControl.Contains(" RPM")) {
+      if (autoFanProtect == "on" && platformMaxFanSpeed.HasValue && (monitorCPU || monitorGPU) && smoothedCPUTemp > currentMaxCPUTemp - 2 && fanControl.Contains(" RPM")) {
         // 检查是否满足转速低于平台最大转速80%的条件
         bool fanSpeedCondition = true;
         if (platformMaxFanSpeed.Value > 0) {
@@ -1254,12 +1272,22 @@ namespace OmenSuperHub {
       }, token);
     }
 
+    // 根据 floatingBarScreen 获取目标显示器，找不到时回退主屏幕
+    static Screen GetFloatingScreen() {
+      if (!string.IsNullOrEmpty(floatingBarScreen)) {
+        foreach (var s in Screen.AllScreens) {
+          if (s.DeviceName == floatingBarScreen) return s;
+        }
+      }
+      return Screen.PrimaryScreen;
+    }
+
     static readonly object _floatingLock = new object();
     // 显示浮窗
     static void ShowFloatingForm() {
       lock (_floatingLock) {
         if (floatingForm == null || floatingForm.IsDisposed) {
-          floatingForm = new FloatingForm(monitorText(), textSize, floatingBarLoc);
+          floatingForm = new FloatingForm(monitorText(), textSize, floatingBarLoc, GetFloatingScreen());
           floatingForm.Show();
         } else {
           floatingForm.BringToFront();
@@ -1288,7 +1316,7 @@ namespace OmenSuperHub {
         //  return;
         //}
         floatingForm.TopMost = true;
-        floatingForm.SetText(monitorText(), textSize, floatingBarLoc);
+        floatingForm.SetText(monitorText(), textSize, floatingBarLoc, GetFloatingScreen());
       }
     }
 

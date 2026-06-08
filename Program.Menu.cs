@@ -143,7 +143,7 @@ namespace OmenSuperHub {
       ToolStripMenuItem presetsMenu = new ToolStripMenuItem(Strings.PresetsMenu);
 
       presetsMenu.DropDownItems.Add(new ToolStripMenuItem(Strings.PresetNote) { Enabled = false });
-      if (platformSettings != null) {
+      if (isCPUPowerControlSupported) {
         presetsMenu.DropDownItems.Add(new ToolStripMenuItem(Strings.PresetInternalNote) { Enabled = false });
         presetsMenu.DropDownItems.Add(CreateMenuItem(Strings.PresetExtreme, "presetsGroup", (s, e) => applyPresetLogic("PresetExtreme"), currentPreset == "PresetExtreme", Strings.PresetExtremeTooltip));
         presetsMenu.DropDownItems.Add(CreateMenuItem(Strings.PresetGpuPriority, "presetsGroup", (s, e) => applyPresetLogic("PresetGpuPriority"), currentPreset == "PresetGpuPriority", Strings.PresetGpuPriorityTooltip));
@@ -240,6 +240,20 @@ namespace OmenSuperHub {
         SaveConfig("TempSensitivity");
       }, false));
       fanConfigMenu.DropDownItems.Add(respondSpeedMenu);
+
+      // 高温自动保护开关
+      ToolStripMenuItem autoFanProtectMenu = new ToolStripMenuItem(Strings.FanAutoProtect);
+      autoFanProtectMenu.DropDownItems.Add(new ToolStripMenuItem(Strings.FanAutoProtectNote) { Enabled = false });
+      autoFanProtectMenu.DropDownItems.Add(CreateMenuItem(Strings.FanAutoProtectOn, "autoFanProtectGroup", (s, e) => {
+        autoFanProtect = "on";
+        SaveConfig("AutoFanProtect");
+      }, autoFanProtect == "on"));
+      autoFanProtectMenu.DropDownItems.Add(CreateMenuItem(Strings.FanAutoProtectOff, "autoFanProtectGroup", (s, e) => {
+        autoFanProtect = "off";
+        SaveConfig("AutoFanProtect");
+      }, autoFanProtect == "off"));
+      fanConfigMenu.DropDownItems.Add(autoFanProtectMenu);
+
       menu.Items.Add(fanConfigMenu);
 
       ToolStripMenuItem fanControlMenu = new ToolStripMenuItem(Strings.FanControl);
@@ -520,54 +534,55 @@ namespace OmenSuperHub {
         }
         performanceControlMenu.DropDownItems.Add(acLoadLineMenu);
       }
-      ToolStripMenuItem cpuPowerMenu = new ToolStripMenuItem(Strings.CpuPowerMenu);
-      if (platformSettings == null) {
-        cpuPowerMenu.DropDownItems.Add(new ToolStripMenuItem(Strings.PerfCpuPowerNotSupportedTip) { Enabled = false });
+
+      if (isCPUPowerControlSupported) {
+        ToolStripMenuItem cpuPowerMenu = new ToolStripMenuItem(Strings.CpuPowerMenu);
+
+        cpuPowerMenu.DropDownItems.Add(new ToolStripMenuItem(Strings.PerfCpuPowerTip) { Enabled = false });
+        cpuPowerMenu.DropDownItems.Add(new ToolStripSeparator());
+        cpuPowerMenu.DropDownItems.Add(CreateMenuItem(Strings.NotSet, "cpuPowerGroup", (s, e) => {
+          cpuPower = "null";
+          SaveConfig("CpuPower");
+        }, true));
+        // 添加提示（只读）
+        ToolStripMenuItem cpuPowerSliderItem = CreateMenuItem(Strings.SetCpuPowerSlider, "cpuPowerGroup", (s, e) => { }, false);
+        cpuPowerMenu.DropDownItems.Add(cpuPowerSliderItem);
+
+        // 创建滑块项
+        cpuPowerTrackBar = new ToolStripTrackBar();
+        cpuPowerTrackBar.Minimum = 10;
+        cpuPowerTrackBar.Maximum = 254;
+        if (platformSettings != null) {
+          cpuPowerTrackBar.Value = platformSettings.NbPL1UpperBoundPerformance > 0 ? platformSettings.NbPL1UpperBoundPerformance : 100;
+        } else {
+          cpuPowerTrackBar.Value = 100;
+        }
+        cpuPowerTrackBar.TickFrequency = cpuPowerTrackBar.Maximum - cpuPowerTrackBar.Minimum;     // 设置刻度间隔
+        cpuPowerTrackBar.Width = 800;           // 设置宿主宽度，内部控件会自动填充
+
+        // 显示当前值的只读标签
+        cpuPowerValueLabel = new ToolStripMenuItem(string.Format(Strings.CurrentSliderValueTemp, $"{cpuPowerTrackBar.Value} W")) { Enabled = false };
+
+        // 滑块值改变时更新标签并应用设置
+        cpuPowerTrackBar.ValueChanged += (sender, e) => {
+          int val = cpuPowerTrackBar.Value;
+          cpuPowerValueLabel.Text = string.Format(Strings.CurrentSliderValueTemp, $"{val} W");
+          UpdateCheckedState("cpuPowerGroup", Strings.SetCpuPowerSlider);
+        };
+
+        // 鼠标松开
+        cpuPowerTrackBar.MouseUp += (sender, e) => {
+          cpuPower = cpuPowerTrackBar.Value + " W";
+          if (isCPUPowerControlSupported)
+            SetCpuPowerLimit((byte)cpuPowerTrackBar.Value);
+          SaveConfig("CpuPower");
+          UpdateCheckedState("cpuPowerGroup", Strings.SetCpuPowerSlider);
+        };
+
+        cpuPowerMenu.DropDownItems.Add(cpuPowerTrackBar);
+        cpuPowerMenu.DropDownItems.Add(cpuPowerValueLabel);
+        performanceControlMenu.DropDownItems.Add(cpuPowerMenu);
       }
-      cpuPowerMenu.DropDownItems.Add(new ToolStripMenuItem(Strings.PerfCpuPowerTip) { Enabled = false });
-      cpuPowerMenu.DropDownItems.Add(new ToolStripSeparator());
-      cpuPowerMenu.DropDownItems.Add(CreateMenuItem(Strings.NotSet, "cpuPowerGroup", (s, e) => {
-        cpuPower = "null";
-        SaveConfig("CpuPower");
-      }, true));
-      // 添加提示（只读）
-      ToolStripMenuItem cpuPowerSliderItem = CreateMenuItem(Strings.SetCpuPowerSlider, "cpuPowerGroup", (s, e) => { }, false);
-      cpuPowerMenu.DropDownItems.Add(cpuPowerSliderItem);
-
-      // 创建滑块项
-      cpuPowerTrackBar = new ToolStripTrackBar();
-      cpuPowerTrackBar.Minimum = 10;
-      cpuPowerTrackBar.Maximum = 254;
-      if (platformSettings != null) {
-        cpuPowerTrackBar.Value = platformSettings.NbPL1UpperBoundPerformance > 0 ? platformSettings.NbPL1UpperBoundPerformance : 100;
-      } else {
-        cpuPowerTrackBar.Value = 100;
-      }
-      cpuPowerTrackBar.TickFrequency = cpuPowerTrackBar.Maximum - cpuPowerTrackBar.Minimum;     // 设置刻度间隔
-      cpuPowerTrackBar.Width = 800;           // 设置宿主宽度，内部控件会自动填充
-
-      // 显示当前值的只读标签
-      cpuPowerValueLabel = new ToolStripMenuItem(string.Format(Strings.CurrentSliderValueTemp, $"{cpuPowerTrackBar.Value} W")) { Enabled = false };
-
-      // 滑块值改变时更新标签并应用设置
-      cpuPowerTrackBar.ValueChanged += (sender, e) => {
-        int val = cpuPowerTrackBar.Value;
-        cpuPowerValueLabel.Text = string.Format(Strings.CurrentSliderValueTemp, $"{val} W");
-        UpdateCheckedState("cpuPowerGroup", Strings.SetCpuPowerSlider);
-      };
-
-      // 鼠标松开
-      cpuPowerTrackBar.MouseUp += (sender, e) => {
-        cpuPower = cpuPowerTrackBar.Value + " W";
-        if (platformSettings != null)
-          SetCpuPowerLimit((byte)cpuPowerTrackBar.Value);
-        SaveConfig("CpuPower");
-        UpdateCheckedState("cpuPowerGroup", Strings.SetCpuPowerSlider);
-      };
-
-      cpuPowerMenu.DropDownItems.Add(cpuPowerTrackBar);
-      cpuPowerMenu.DropDownItems.Add(cpuPowerValueLabel);
-      performanceControlMenu.DropDownItems.Add(cpuPowerMenu);
 
       ToolStripMenuItem gpuPowerMenu = new ToolStripMenuItem(Strings.GpuPowerControlMenu);
 
@@ -701,7 +716,7 @@ namespace OmenSuperHub {
           }
           if (MessageBox.Show(Strings.PerfDbUnlockWarning, Strings.DbUnlockTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) {
             SetGpuPowerState(true, true);
-            if (platformSettings != null)
+            if (isCPUPowerControlSupported)
               SetCpuPowerLimit((byte)CPULimitDB);
             DBVersion = 1;
             ChangeDBVersion(DBVersion);
@@ -967,21 +982,33 @@ namespace OmenSuperHub {
         SaveConfig("FloatingBar");
       }, false));
       floatingBarMenu.DropDownItems.Add(new ToolStripSeparator()); // Separator between groups
-      floatingBarMenu.DropDownItems.Add(CreateMenuItem(Strings.FontSize24, "floatingBarSizeGroup", (s, e) => {
-        textSize = 24;
-        UpdateFloatingText();
+      floatingBarMenu.DropDownItems.Add(new ToolStripMenuItem(Strings.SetTextSizeSlider) { Enabled = false });
+      textSizeTrackBar = new ToolStripTrackBar();
+      textSizeTrackBar.Minimum = 6;
+      textSizeTrackBar.Maximum = 18;
+      textSizeTrackBar.Value = 10;
+      textSizeTrackBar.TickFrequency = textSizeTrackBar.Maximum - textSizeTrackBar.Minimum;
+      textSizeTrackBar.Width = 400;
+
+      textSizeLabel = new ToolStripMenuItem(string.Format(Strings.CurrentSliderValueTemp, $"{textSizeTrackBar.Value * 4}")) { Enabled = false };
+
+      textSizeTrackBar.ValueChanged += (sender, e) => {
+        int calculatedSize = textSizeTrackBar.Value * 4; // 实际值 24 - 72
+        textSizeLabel.Text = string.Format(Strings.CurrentSliderValueTemp, $"{textSizeTrackBar.Value * 4}");
+        textSize = calculatedSize;
+
+        // 即时刷新浮窗
+        if (floatingForm != null && floatingForm.Visible) {
+          floatingForm.SetText(monitorText(), textSize, floatingBarLoc, GetFloatingScreen());
+        }
+      };
+
+      textSizeTrackBar.MouseUp += (sender, e) => {
         SaveConfig("FloatingBarSize");
-      }, false));
-      floatingBarMenu.DropDownItems.Add(CreateMenuItem(Strings.FontSize36, "floatingBarSizeGroup", (s, e) => {
-        textSize = 36;
-        UpdateFloatingText();
-        SaveConfig("FloatingBarSize");
-      }, false));
-      floatingBarMenu.DropDownItems.Add(CreateMenuItem(Strings.FontSize48, "floatingBarSizeGroup", (s, e) => {
-        textSize = 48;
-        UpdateFloatingText();
-        SaveConfig("FloatingBarSize");
-      }, true));
+      };
+
+      floatingBarMenu.DropDownItems.Add(textSizeTrackBar);
+      floatingBarMenu.DropDownItems.Add(textSizeLabel);
       floatingBarMenu.DropDownItems.Add(new ToolStripSeparator()); // Separator between groups
       floatingBarMenu.DropDownItems.Add(CreateMenuItem(Strings.FloatingLocLeft, "floatingBarLocGroup", (s, e) => {
         floatingBarLoc = "left";
@@ -993,6 +1020,45 @@ namespace OmenSuperHub {
         UpdateFloatingText();
         SaveConfig("FloatingBarLoc");
       }, false));
+      floatingBarMenu.DropDownItems.Add(new ToolStripSeparator());
+
+      // ---- 显示器选择 ----
+      ToolStripMenuItem floatingScreenMenu = new ToolStripMenuItem(Strings.FloatingScreen);
+      // 每次打开时动态枚举当前所有显示器，并标记当前选中项
+      floatingScreenMenu.DropDownOpening += (s, e) => {
+        floatingScreenMenu.DropDownItems.Clear();
+        var screens = Screen.AllScreens
+            .OrderBy(sc => sc.Primary ? 0 : 1)
+            .ThenBy(sc => sc.Bounds.Left)
+            .ToArray();
+        for (int idx = 0; idx < screens.Length; idx++) {
+          var sc = screens[idx];
+          int displayNum = idx + 1;
+          string deviceName = sc.DeviceName;
+          string label = $"{Strings.FloatingScreen} {displayNum}";
+          if (sc.Primary) label += $"  ({Strings.FloatingScreenPrimary})";
+          bool isCurrent = floatingBarScreen == deviceName
+                        || (string.IsNullOrEmpty(floatingBarScreen) && sc.Primary);
+          var screenItem = new ToolStripMenuItem(label) {
+            Tag = "floatingScreenGroup",
+            Checked = isCurrent
+          };
+          screenItem.Click += (sender, args) => {
+            floatingBarScreen = deviceName;
+            // 同步取消其他项的勾选
+            foreach (ToolStripMenuItem mi in floatingScreenMenu.DropDownItems.OfType<ToolStripMenuItem>())
+              mi.Checked = (mi == screenItem);
+            // 移动浮窗到新显示器（若已显示则关闭重建以确保跨屏幕渲染正确）
+            if (floatingBar == "on") {
+              CloseFloatingForm();
+              ShowFloatingForm();
+            }
+            SaveConfig("FloatingBarScreen");
+          };
+          floatingScreenMenu.DropDownItems.Add(screenItem);
+        }
+      };
+      floatingBarMenu.DropDownItems.Add(floatingScreenMenu);
       menu.Items.Add(floatingBarMenu);
       ToolStripMenuItem omenKeyMenu = new ToolStripMenuItem(Strings.OmenKeyMenu);
       omenKeyMenu.DropDownItems.Add(CreateMenuItem(Strings.OmenKeyDefault, "omenKeyGroup", (s, e) => {
@@ -1610,6 +1676,7 @@ namespace OmenSuperHub {
     static void RefreshMenu() {
       if (trayIcon == null || trayIcon.ContextMenuStrip == null) return;
       BuildTrayMenu(trayIcon.ContextMenuStrip);
+      RestoreConfig();
     }
 
     static ToolStripMenuItem CreateMenuItem(string text, string group, EventHandler action, bool isChecked, string toolTip = null) {

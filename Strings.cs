@@ -73,9 +73,9 @@
         "💡 Presets include fan config, fan control, and performance control options—excluding the DB version."
     );
     public static string PresetInternalNote => T(
-        "💡只有自定义预设能永久保存设置，内置预设的改动会在下一次切换预设时丢失！",
-        "💡只有自訂預設能永久儲存設置，內建預設的變更會在下次切換預設時遺失！",
-        "💡 Only custom presets can permanently save your settings; any changes made to built-in presets will be lost the next time you switch presets!"
+        "💡只有自定义预设能永久保存设置并额外包括硬件监控配置，内置预设的改动会在下一次切换预设时丢失！",
+        "💡只有自訂預設能永久儲存設定並額外包含硬體監控配置，內建預設的變更會在下次切換預設時遺失！",
+        "💡 Only custom presets permanently save settings and include hardware monitoring configurations; changes made to built-in presets will be lost the next time you switch presets."
     );
     public static string PresetExtremeTooltip => T(
         "完全释放性能，甚至可以尝试继续调高CPU功率。",
@@ -111,6 +111,16 @@
     public static string FanRespHigh => T("高", "高", "High");
     public static string FanRespMedium => T("中", "中", "Medium");
     public static string FanRespLow => T("低", "低", "Low");
+
+    // 高温自动保护开关
+    public static string FanAutoProtect => T("高温自动保护", "高溫自動保護", "High-Temp Auto-Protect");
+    public static string FanAutoProtectNote => T(
+        "💡开启后，若CPU温度过高且风扇处于固定转速且低于80%最大转速，OSH将自动切换为降温模式和自动风扇控制。",
+        "💡開啟後，若CPU溫度過高且風扇處於固定轉速且低於80%最大轉速，OSH將自動切換為降溫模式和自動風扇控制。",
+        "💡 When enabled, OSH automatically switches to Cool mode and Auto fan control if CPU temperature is too high and fans are running at a fixed low speed."
+    );
+    public static string FanAutoProtectOn => T("开启保护", "開啟保護", "Enable Protection");
+    public static string FanAutoProtectOff => T("关闭保护", "關閉保護", "Disable Protection");
 
     public static string FanSilentTooltip => T(
         "安静模式下风扇转速较低，对应 silent.txt 文件，可以通过修改文件改变转速曲线。",
@@ -233,10 +243,6 @@
     // ─────────────────────────────────────────────────────────────────────────
     // 性能控制 — 提示文本
     // ─────────────────────────────────────────────────────────────────────────
-    public static string PerfCpuPowerNotSupportedTip => T("💡本机型无平台描述文件，可能无法使用该设置！",
-        "💡本機型無平台描述文件，可能無法使用此設定！",
-        "💡 This model does not have a platform description file, so this setting may not be available!");
-
     public static string PerfCpuPowerTip => T("💡同时控制PL1与PL2，选择最大或过高的数值不一定生效，建议优先选择合适的数值而不是无脑最大。",
         "💡同時控制PL1與PL2，選擇最大或過高的數值不一定生效，建議優先選擇合適的數值而不是無腦最大。",
         "💡 Controls both PL1 and PL2. Setting maximum or very high values may not take effect. Choose an appropriate value.");
@@ -282,9 +288,7 @@
     // ─────────────────────────────────────────────────────────────────────────
     // 浮窗字体大小
     // ─────────────────────────────────────────────────────────────────────────
-    public static string FontSize24 => T("24号", "24號", "Size 24 font");
-    public static string FontSize36 => T("36号", "36號", "Size 36 font");
-    public static string FontSize48 => T("48号", "48號", "Size 48 font");
+    public static string SetTextSizeSlider => T("拖动滑块设置字号", "拖動滑塊設置字號", "Drag the slider to set font size");
 
     // ─────────────────────────────────────────────────────────────────────────
     // 灯光控制 — UI 文本
@@ -412,6 +416,8 @@
     public static string FloatingHide => T("关闭浮窗", "關閉浮窗", "Hide Overlay");
     public static string FloatingLocLeft => T("左上角", "左上角", "Top Left");
     public static string FloatingLocRight => T("右上角", "右上角", "Top Right");
+    public static string FloatingScreen => T("显示器选择", "顯示器選擇", "Display");
+    public static string FloatingScreenPrimary => T("主屏幕", "主螢幕", "Primary");
 
     // ─────────────────────────────────────────────────────────────────────────
     // Omen Key
@@ -527,7 +533,7 @@
     // ─────────────────────────────────────────────────────────────────────────
     // HelpForm
     // ─────────────────────────────────────────────────────────────────────────
-    public static string HelpWindowTitle => T("OmenSuperHub帮助", "OmenSuperHub說明", "OmenSuperHub Help");
+    public static string HelpWindowTitle => T(" 帮助", " 說明", " Help");
 
     // ─────────────────────────────────────────────────────────────────────────
     // 内部辅助
