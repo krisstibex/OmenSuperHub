@@ -13,6 +13,7 @@ namespace OmenSuperHub {
       TopMost = true;
       Text = Strings.HelpWindowTitle;
       Icon = Properties.Resources.fan;
+      this.FormClosed += HelpForm_FormClosed;
 
       // 窗体大小和位置（屏幕的一半，居中）
       Rectangle screenBounds = Screen.PrimaryScreen.Bounds;
@@ -60,6 +61,11 @@ namespace OmenSuperHub {
     }
 
     private void HelpForm_FormClosed(object sender, FormClosedEventArgs e) {
+      try {
+        webBrowser?.Stop();
+      } catch { }
+
+      webBrowser = null;
       _instance = null;
     }
 
@@ -145,15 +151,11 @@ namespace OmenSuperHub {
 <h2>📦 OmenSuperHub v{Assembly.GetExecutingAssembly().GetName().Version} 更新说明</h2>
 <div class='update-list'>
 <p><strong>新增：</strong></p>
-<li>✨ 浮窗显示功能支持多显示器，新增显示器选择菜单</li>
-<li>✨ 风扇配置菜单添加高温自动保护选项，控制是否在温度过高时取消固定转速</li>
-<li>✨ 将硬件监控设置纳入自定义预设控制范围</li>
+<li>✨ 新增最大帧率菜单，0~1000 FPS可调</li>
 <p><strong>优化：</strong></p>
-<li>⚡ 将浮窗显示的字号设置改为滑块操作并扩展上限至72号</li>
-<li>⚡ 使用WebBrowser美化帮助页面</li>
+<li>⚡ 关闭帮助页面后释放内存占用</li>
 <p><strong>修复：</strong></p>
-<li>🐛 切换语言后菜单状态重置为默认值的问题</li>
-<li>🐛 本机信息中显卡列表可能识别到虚拟显示器的问题</li>
+<li>🐛 帮助页面打开时触发弹窗将导致卡死的问题</li>
 </div>
 
 <p>本项目已开源至 Github：<a href='https://github.com/breadeding/OmenSuperHub'>https://github.com/breadeding/OmenSuperHub</a></p>
@@ -212,15 +214,11 @@ namespace OmenSuperHub {
 <h2>📦 OmenSuperHub v{Assembly.GetExecutingAssembly().GetName().Version} 更新說明</h2>
 <div class='update-list'>
 <p><strong>新增：</strong></p>
-<li>✨ 浮窗顯示功能支援多顯示器，新增顯示器選擇選單</li>
-<li>✨ 風扇配置選單增加高溫自動保護選項，控制是否在溫度過高時取消固定轉速</li>
-<li>✨ 將硬體監控設定納入自訂預設控制範圍</li>
+<li>✨ 新增最大幀率選單，0~1000 FPS可調</li>
 <p><strong>優化：</strong></p>
-<li>⚡ 將浮窗顯示的字號設定改為滑桿操作並擴展上限至72號</li>
-<li>⚡ 使用WebBrowser美化幫助頁面</li>
+<li>⚡ 關閉幫助頁面後釋放記憶體佔用</li>
 <p><strong>修復：</strong></p>
-<li>🐛 切換語言後選單狀態重設為預設值的問題</li>
-<li>🐛 本機資訊中顯示卡片清單可能辨識到虛擬顯示器的問題</li>
+<li>🐛 幫助頁面開啟時觸發彈窗將導致卡死的問題</li>
 </div>
 
 <p>本專案已開源至 Github：<a href='https://github.com/breadeding/OmenSuperHub'>https://github.com/breadeding/OmenSuperHub</a></p>
@@ -279,15 +277,11 @@ namespace OmenSuperHub {
 <h2>📦 OmenSuperHub v{Assembly.GetExecutingAssembly().GetName().Version} Changelog</h2>
 <div class='update-list'>
 <p><strong>New Features:</strong></p>
-<li>✨ Floating window display now supports multi-monitor setups; added a monitor selection menu</li>
-<li>✨ Added an ""Auto-protection at High Temperatures"" option to the fan configuration menu, allowing users to toggle whether fixed fan speeds are overridden when temperatures get too high</li>
-<li>✨ Included hardware monitoring settings in the custom preset controls</li>
+<li>✨ Added a maximum frame rate menu; adjustable from 0 to 1000 FPS</li>
 <p><strong>Optimizations:</strong></p>
-<li>⚡ Changed the floating window font size setting to a slider control and increased the maximum size to 72</li>
-<li>⚡ Enhanced the help page appearance using the WebBrowser component</li>
+<li>⚡ Memory is now released after closing the Help page</li>
 <p><strong>Fixes:</strong></p>
-<li>🐛 Fixed an issue where menu states would reset to default values ​​after changing the language</li>
-<li>🐛 Fixed an issue where virtual displays might be detected in the graphics card list within system information</li>
+<li>🐛 Fixed an issue where triggering a pop-up while the Help page was open caused the application to freeze</li>
 </div>
 
 <p>This project is open-source on Github: <a href='https://github.com/breadeding/OmenSuperHub'>https://github.com/breadeding/OmenSuperHub</a></p>
