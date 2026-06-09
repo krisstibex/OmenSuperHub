@@ -59,6 +59,7 @@
     public static string PresetCustom1 => T("自定义预设1", "自定義預設1", "Custom 1");
     public static string PresetCustom2 => T("自定义预设2", "自定義預設2", "Custom 2");
     public static string PresetCustom3 => T("自定义预设3", "自定義預設3", "Custom 3");
+    public static string ActivePreset => T("当前预设", "目前預設", "Active Preset");
     public static string RenamePreset => T("重命名", "重新命名", "Rename");
     public static string RenamePresetTitle => T("重命名预设", "重新命名預設", "Rename Preset");
     public static string RenamePresetPrompt => T("请输入新的预设名称：", "請輸入新的預設名稱：", "Please enter new preset name:");
@@ -106,6 +107,38 @@
     // ─────────────────────────────────────────────────────────────────────────
     public static string FanSilentMode => T("安静模式", "安靜模式", "Silent Mode");
     public static string FanCoolMode => T("降温模式", "降溫模式", "Cool Mode");
+    public static string FanCustomMode => T("自定义", "自訂", "Custom");
+    public static string FanCustomTooltip => T(
+        "左键应用 custom.txt；右键编辑 CPU 和 GPU 风扇曲线。",
+        "左鍵套用 custom.txt；右鍵編輯 CPU 和 GPU 風扇曲線。",
+        "Left-click to apply custom.txt; right-click to edit CPU and GPU fan curves.");
+    public static string FanCurveEditorTitle => T("自定义风扇曲线", "自訂風扇曲線", "Custom Fan Curves");
+    public static string FanCurveCpuTitle => T("CPU 风扇曲线", "CPU 風扇曲線", "CPU Fan Curve");
+    public static string FanCurveGpuTitle => T("GPU 风扇曲线", "GPU 風扇曲線", "GPU Fan Curve");
+    public static string FanCurveTemperatureAxis => T("温度 (°C)", "溫度 (°C)", "Temperature (°C)");
+    public static string FanCurveFanSpeedAxis => T("风扇转速 (RPM)", "風扇轉速 (RPM)", "Fan Speed (RPM)");
+    public static string FanCurveInstructions => T(
+        "左键空白处增加节点；拖动节点调整；右键节点删除（至少保留两个节点）。",
+        "左鍵空白處新增節點；拖曳節點調整；右鍵節點刪除（至少保留兩個節點）。",
+        "Left-click empty space to add; drag to adjust; right-click to delete (keep at least two points).");
+    public static string FanCurveSave => T("保存", "儲存", "Save");
+    public static string FanCurveSaveAndApply => T("保存并应用", "儲存並套用", "Save & Apply");
+    public static string FanCurveCancel => T("取消", "取消", "Cancel");
+    public static string FanCurveLoad => T("加载", "載入", "Load");
+    public static string FanCurveFileFilter => T(
+        "风扇配置文件 (*.txt)|*.txt|所有文件 (*.*)|*.*",
+        "風扇設定檔 (*.txt)|*.txt|所有檔案 (*.*)|*.*",
+        "Fan profile (*.txt)|*.txt|All files (*.*)|*.*");
+    public static string FanCurveInvalidFile => T(
+        "风扇配置文件格式无效。",
+        "風扇設定檔格式無效。",
+        "The fan profile format is invalid.");
+    public static string FanCurveOutOfRange => T(
+        "曲线必须至少包含两个节点，温度和转速不能超过当前机型上限，且温度不能重复。",
+        "曲線必須至少包含兩個節點，溫度和轉速不能超過目前機型上限，且溫度不能重複。",
+        "Each curve needs at least two points. Values must stay within this model's limits and temperatures must be unique.");
+    public static string FanCurveLoadFailed => T("加载风扇配置失败。", "載入風扇設定失敗。", "Failed to load the fan profile.");
+    public static string FanCurveSaveFailed => T("保存风扇配置失败。", "儲存風扇設定失敗。", "Failed to save the fan profile.");
     public static string FanResponseSpeed => T("风扇响应速度", "風扇響應速度", "Fan Response Speed");
     public static string FanRespRealtime => T("实时", "即時", "Realtime");
     public static string FanRespHigh => T("高", "高", "High");
@@ -211,7 +244,7 @@
     public static string SetFanSpeedSlider => T("拖动滑块设置转速 (RPM)", "拖動滑桿設定轉速 (RPM)", "Drag slider to set speed (RPM)");
     public static string SetTppSlider => T("拖动滑块设置功率 (W)", "拖動滑桿設定功率 (W)", "Drag slider to set power (W)");
     public static string SetGpuClockSlider => T("拖动滑块设置频率 (MHz)", "拖動滑桿設定頻率 (MHz)", "Drag slider to set clock (MHz)");
-    public static string SetMaxFrameRateSlider => T("拖动滑块设置最大帧率", "拖動滑桿設定最大幀率", "Drag slider to set max frame rate");
+    public static string SetMaxFrameRateSlider => T("拖动滑块设置最大帧率 (FPS)", "拖動滑桿設定最大幀率 (FPS)", "Drag slider to set max frame rate (FPS)");
     public static string PpabPowerMenu => T("PPab条件(Tpp)", "PPab條件(Tpp)", "PPab (Tpp)");
     public static string DStateSubMenu => T("dState", "dState", "dState");
     public static string DbVersionMenu => T("DB版本", "DB版本", "DB Version");
@@ -264,6 +297,10 @@
     public static string PerfDStateTip => T("💡选择低功耗将把GPU功率限制在一个较低水平。",
         "💡選擇低功耗將把GPU功率限制在一個較低水平。",
         "💡 Low power mode restricts GPU power to a lower level.");
+
+    public static string PerfMaxFrameRateTip => T("💡设置GPU将渲染的最大3D游戏或应用程序帧速率的最大帧速率，0即无限制",
+        "💡設置GPU將渲染的最大3D遊戲或應用程序幀速率的最大幀速率，0即無限制",
+        "💡 Sets the maximum frame rate for GPU rendering of 3D games or applications, 0 means no limit.");
 
     public static string PerfDbTip => T("💡你的设备支持Ppab条件更改，请优先选择增大Ppab条件中的功率而不是更改DB版本，两者效果相同。",
         "💡你的設備支援Ppab條件更改，請優先選擇增大Ppab條件中的功率而不是更改DB版本，兩者效果相同。",
@@ -426,6 +463,30 @@
     // ─────────────────────────────────────────────────────────────────────────
     public static string OmenKeyDefault => T("默认", "預設", "Default");
     public static string OmenKeyToggle => T("切换浮窗显示", "切換浮窗顯示", "Toggle Overlay");
+    public static string OmenKeySwitchPreset => T("切换预设", "切換預設", "Switch Preset");
+    public static string OmenKeyPresetCandidates => T("候选预设", "候選預設", "Preset Candidates");
+    public static string OmenKeyPresetBalloonTitle => T("已切换预设", "已切換預設", "Preset Switched");
+    public static string OmenKeyPresetBalloonText(string name) => T(
+        $"当前预设：{name}",
+        $"目前預設：{name}",
+        $"Current preset: {name}");
+    public static string OmenKeyLaunchApp => T("打开应用", "開啟應用程式", "Open App");
+    public static string OmenKeySelectApp => T("选择应用", "選擇應用程式", "Select App");
+    public static string OmenKeyClearApp => T("清除应用绑定", "清除應用程式綁定", "Clear App Binding");
+    public static string OmenKeyCurrentApp => T("当前应用", "目前應用程式", "Current App");
+    public static string OmenKeyNoAppSelected => T("未选择", "未選擇", "Not Selected");
+    public static string OmenKeyAppFilter => T(
+        "应用程序和快捷方式|*.exe;*.lnk;*.bat;*.cmd|所有文件|*.*",
+        "應用程式和捷徑|*.exe;*.lnk;*.bat;*.cmd|所有檔案|*.*",
+        "Applications and shortcuts|*.exe;*.lnk;*.bat;*.cmd|All files|*.*");
+    public static string OmenKeyAppNotFound => T(
+        "未找到已绑定的应用，请重新选择。",
+        "找不到已綁定的應用程式，請重新選擇。",
+        "The bound app was not found. Please select it again.");
+    public static string OmenKeyAppLaunchFailed(string msg) => T(
+        $"打开应用失败：{msg}",
+        $"開啟應用程式失敗：{msg}",
+        $"Failed to open app: {msg}");
     public static string OmenKeyNone => T("取消绑定", "取消綁定", "Unbound");
 
     // ─────────────────────────────────────────────────────────────────────────
