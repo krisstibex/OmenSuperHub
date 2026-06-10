@@ -233,6 +233,7 @@ namespace OmenSuperHub {
       bool isBuiltInPreset = (currentPreset == "PresetExtreme" || currentPreset == "PresetGpuPriority" || currentPreset == "PresetLightUse");
 
       ToolStripMenuItem fanConfigMenu = new ToolStripMenuItem(Strings.FanConfig);
+      fanConfigMenu.DropDownItems.Add(new ToolStripMenuItem(Strings.FanCurveNote) { Enabled = false });
       var silentFanItem = new ToolStripMenuItem(Strings.FanSilentMode) {
         Tag = "fanTableGroup",
         Checked = fanTable.Contains("silent"),
@@ -1181,25 +1182,11 @@ namespace OmenSuperHub {
         ApplyOmenKeyAction(OmenKeyActions.Preset);
       }, false));
       omenKeyMenu.DropDownItems.Add(CreateMenuItem(Strings.OmenKeyLaunchApp, "omenKeyGroup", (s, e) => {
-        if (!IsOmenKeyAppTargetAvailable()) {
-          if (!SelectOmenKeyApp()) {
-            skipCheckedUpdate = true;
-            return;
-          }
-          SaveConfig("OmenKeyAppPath");
-          SaveConfig("OmenKeyAppName");
-        }
-        ApplyOmenKeyAction(OmenKeyActions.App);
+      if (!IsOmenKeyAppTargetAvailable())
+        SelectOmenKeyApp();
       }, false));
       omenKeyMenu.DropDownItems.Add(CreateMenuItem(Strings.OmenKeyShortcut, "omenKeyGroup", (s, e) => {
-        if (string.IsNullOrWhiteSpace(omenKeyShortcut)) {
-          if (!SelectOmenKeyShortcut()) {
-            skipCheckedUpdate = true;
-            return;
-          }
-          SaveConfig("OmenKeyShortcut");
-        }
-        ApplyOmenKeyAction(OmenKeyActions.Shortcut);
+        SelectOmenKeyShortcut();
       }, false));
       omenKeyMenu.DropDownItems.Add(new ToolStripSeparator());
 
@@ -1267,24 +1254,11 @@ namespace OmenSuperHub {
 
       omenKeyMenu.DropDownItems.Add(currentAppItem);
       omenKeyMenu.DropDownItems.Add(CreateMenuItem(Strings.OmenKeySelectDesktopApp, null, (s, e) => {
-        // SelectOmenKeyApp opens an OpenFileDialog which does NOT close the context menu.
-        // Avoid RefreshMenu() here — it would rebuild the ContextMenuStrip while this submenu
-        // is still visible, causing the root menu to flash and leaving the submenu showing
-        // stale "当前应用:" text. Instead, update the display item directly.
-        if (!SelectOmenKeyApp()) return;
-        SaveConfig("OmenKeyAppPath");
-        SaveConfig("OmenKeyAppName");
-        ApplyOmenKeyAction(OmenKeyActions.App);
-        currentAppItem.Text = $"{Strings.OmenKeyCurrentApp}: {GetOmenKeyAppDisplayName()}";
-        UpdateCheckedState("omenKeyGroup", Strings.OmenKeyLaunchApp);
+        // Modeless editor: bring the existing window to the front when it is already open.
+        SelectOmenKeyApp();
       }, false));
       omenKeyMenu.DropDownItems.Add(CreateMenuItem(Strings.OmenKeySelectUwpApp, null, (s, e) => {
-        if (!SelectOmenKeyUwpApp()) return;
-        SaveConfig("OmenKeyAppPath");
-        SaveConfig("OmenKeyAppName");
-        ApplyOmenKeyAction(OmenKeyActions.App);
-        currentAppItem.Text = $"{Strings.OmenKeyCurrentApp}: {GetOmenKeyAppDisplayName()}";
-        UpdateCheckedState("omenKeyGroup", Strings.OmenKeyLaunchApp);
+        SelectOmenKeyUwpApp();
       }, false));
       omenKeyMenu.DropDownItems.Add(CreateMenuItem(Strings.OmenKeyClearApp, null, (s, e) => {
         omenKeyAppPath = "";
@@ -1300,11 +1274,7 @@ namespace OmenSuperHub {
       omenKeyMenu.DropDownItems.Add(new ToolStripSeparator());
       omenKeyMenu.DropDownItems.Add(currentShortcutItem);
       omenKeyMenu.DropDownItems.Add(CreateMenuItem(Strings.OmenKeySetShortcut, null, (s, e) => {
-        if (!SelectOmenKeyShortcut()) return;
-        SaveConfig("OmenKeyShortcut");
-        ApplyOmenKeyAction(OmenKeyActions.Shortcut);
-        currentShortcutItem.Text = $"{Strings.OmenKeyCurrentShortcut}: {FormatOmenKeyShortcut(omenKeyShortcut)}";
-        UpdateCheckedState("omenKeyGroup", Strings.OmenKeyShortcut);
+        SelectOmenKeyShortcut();
       }, false));
       omenKeyMenu.DropDownItems.Add(CreateMenuItem(Strings.OmenKeyClearShortcut, null, (s, e) => {
         omenKeyShortcut = "";
@@ -1337,6 +1307,7 @@ namespace OmenSuperHub {
         langItem.Click += (s, e) => {
           if (appLanguage == localLang.code) return;
 
+          CloseAllOpenForms();
           appLanguage = localLang.code;
           ApplyLanguage(appLanguage);
           SaveConfig("AppLanguage");
@@ -1942,8 +1913,52 @@ namespace OmenSuperHub {
       parentMenu.DropDownItems.Add(brightMenu);
     }
 
+    private static FanCurveForm activeFanCurveEditor;
+    private static string activeFanCurveEditorPath;
+
+    static string GetFanCurveEditorTitle(string fileName) {
+      string modeName;
+      string fileKey = Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant();
+      if (fileKey == "silent") modeName = Strings.FanSilentMode;
+      else if (fileKey == "cool") modeName = Strings.FanCoolMode;
+      else modeName = Strings.FanCustomMode;
+
+      return $"{modeName}" + Strings.FanCurveEditorTitle;
+    }
+
+    static void CloseAllOpenForms() {
+      var openForms = Application.OpenForms.Cast<Form>().ToList();
+      foreach (Form form in openForms) {
+        if (form == null || form.IsDisposed) continue;
+        try {
+          form.Close();
+        } catch (Exception ex) {
+          Logger.Error($"Failed to close open form '{form.Text}': {ex.Message}");
+        }
+      }
+    }
+
+    static void CloseOpenTrayMenus(ToolStripDropDown dropDown) {
+      if (dropDown == null) return;
+
+      foreach (ToolStripItem item in dropDown.Items) {
+        var menuItem = item as ToolStripMenuItem;
+        if (menuItem != null && menuItem.HasDropDownItems) {
+          CloseOpenTrayMenus(menuItem.DropDown);
+        }
+      }
+
+      if (dropDown.Visible) {
+        try {
+          dropDown.Close(ToolStripDropDownCloseReason.CloseCalled);
+        } catch {
+        }
+      }
+    }
+
     static void RefreshMenu() {
       if (trayIcon == null || trayIcon.ContextMenuStrip == null) return;
+      CloseOpenTrayMenus(trayIcon.ContextMenuStrip);
       BuildTrayMenu(trayIcon.ContextMenuStrip);
       RestoreConfig();
     }
@@ -1954,8 +1969,26 @@ namespace OmenSuperHub {
       string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
       string filePath = Path.Combine(baseDirectory, fileName);
       bool isSilent = fileName.IndexOf("silent", StringComparison.OrdinalIgnoreCase) >= 0;
+      string windowTitle = GetFanCurveEditorTitle(fileName);
 
       try {
+        if (activeFanCurveEditor != null && !activeFanCurveEditor.IsDisposed) {
+          if (string.Equals(activeFanCurveEditorPath, filePath, StringComparison.OrdinalIgnoreCase)) {
+            if (activeFanCurveEditor.WindowState == FormWindowState.Minimized) {
+              activeFanCurveEditor.WindowState = FormWindowState.Normal;
+            }
+            activeFanCurveEditor.Show();
+            activeFanCurveEditor.BringToFront();
+            activeFanCurveEditor.Activate();
+            return;
+          }
+
+          var oldEditor = activeFanCurveEditor;
+          activeFanCurveEditor = null;
+          activeFanCurveEditorPath = null;
+          try { oldEditor.Close(); } catch { }
+        }
+
         FanCurveProfile initialProfile;
         if (File.Exists(filePath)) {
           initialProfile = FanCurveProfile.Load(filePath);
@@ -1967,9 +2000,16 @@ namespace OmenSuperHub {
         int gpuMaximum = maxGPUTemp ?? 90;
         int detectedMaximum = platformMaxFanSpeed ?? 5600;
         int fanMaximum = Math.Max(1000, (int)(Math.Ceiling(detectedMaximum * 1.1 / 100D) * 100D));
-        var editor = new FanCurveForm(initialProfile, cpuMaximum, gpuMaximum, fanMaximum, filePath);
+        var editor = new FanCurveForm(initialProfile, cpuMaximum, gpuMaximum, fanMaximum, filePath, windowTitle);
+        activeFanCurveEditor = editor;
+        activeFanCurveEditorPath = filePath;
 
         editor.FormClosed += (sender, args) => {
+          if (ReferenceEquals(activeFanCurveEditor, editor)) {
+            activeFanCurveEditor = null;
+            activeFanCurveEditorPath = null;
+          }
+
           if (editor.EditorResult == FanCurveEditorResult.SavedAndApplied) {
             string fanTableKey = System.IO.Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant();
             fanTable = fanTableKey;
@@ -1983,10 +2023,15 @@ namespace OmenSuperHub {
           }
         };
         editor.Show();
+        editor.BringToFront();
+        editor.Activate();
       } catch (Exception ex) when (
           ex is IOException ||
           ex is UnauthorizedAccessException ||
           ex is InvalidDataException) {
+        if (ReferenceEquals(activeFanCurveEditor, null)) {
+          activeFanCurveEditorPath = null;
+        }
         MessageBox.Show(
             Application.OpenForms.OfType<HelpForm>().FirstOrDefault(),
             Strings.FanCurveLoadFailed + Environment.NewLine + ex.Message,
@@ -1995,6 +2040,7 @@ namespace OmenSuperHub {
             MessageBoxIcon.Error);
       }
     }
+
 
     static bool ApplyCustomFanConfig() {
       string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
