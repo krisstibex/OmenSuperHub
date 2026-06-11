@@ -1,6 +1,6 @@
-# OmenSuperHub
+# OmenSuperHub_github_ci_build
 
-开源 HP OMEN 控制中心复刻项目。
+开源 HP OMEN 控制中心复刻项目，由github ci自动构建发布。
 
 ## 首次使用
 
