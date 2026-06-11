@@ -141,19 +141,23 @@ namespace OmenSuperHub {
 </html>";
     }
 
-    // 简体中文 HTML 内容（注意内部双引号已转义为两个双引号）
+    // 简体中文 HTML 内容
     private static string GetHelpHtml_ZH(Version version) {
       return $@"
 <h2>📦 OmenSuperHub v{Assembly.GetExecutingAssembly().GetName().Version} 更新说明</h2>
 <div class='update-list'>
 <p><strong>新增：</strong></p>
-<li>✨ Omen键打开UWP应用、绑定组合键 <a href='https://github.com/breadeding/OmenSuperHub/pull/68'>(#68, shihuaidexianyu)</a></li>
+<li>✨ 点击OSH程序图标可以快速切换浮窗显示</a></li>
 <p><strong>优化：</strong></p>
-<li>⚡ 安静模式与降温模式支持曲线UI调整，优化转速曲线说明</li>
+<li>⚡ 更紧凑的Omen键菜单结构</li>
+<li>⚡ 打开设置窗口后支持继续操作菜单</li>
 <p><strong>修复：</strong></p>
-<li>🐛 解锁DB时，更新显卡驱动至不支持的版本后第一次启动OSH执行解锁导致功耗异常的问题</li>
-<li>🐛 风扇转速表错误校验的问题</li>
-<li>🐛 启动时Omen键菜单未显示已选择的应用</li>
+<li>🐛 任务计划程序无UserId限制导致多次启动、登录前无法自动控制转速</li>
+<li>🐛 切换语言后未关闭已打开的窗口、菜单</li>
+<li>🐛 Omen键已绑定目标应用时将Omen键设定为“打开应用”模式无效</li>
+<li>🐛 模拟按键设置界面的“取消”点击无效</li>
+<li>🐛 Omen键已绑定模拟按键时将Omen键设定为“模拟按键”模式依然打开设置界面</li>
+<li>🐛 Omen键已绑定模拟按键时将Omen键设定为“模拟按键”模式无效</li>
 </div>
 
 <p>本项目已开源至 Github：<a href='https://github.com/breadeding/OmenSuperHub'>https://github.com/breadeding/OmenSuperHub</a></p>
@@ -215,13 +219,17 @@ namespace OmenSuperHub {
 <h2>📦 OmenSuperHub v{Assembly.GetExecutingAssembly().GetName().Version} 更新說明</h2>
 <div class='update-list'>
 <p><strong>新增：</strong></p>
-<li>✨ Omen鍵開啟UWP應用程式、綁定組合鍵 <a href='https://github.com/breadeding/OmenSuperHub/pull/68'>(#68, shihuaidexianyu)</a></li>
+<li>✨ 點選OSH程式圖示可快速切換浮窗顯示</a></li>
 <p><strong>優化：</strong></p>
-<li>⚡ 安靜模式與降溫模式支援曲線UI調整，最佳化轉速曲線說明</li>
+<li>⚡ 更緊湊的Omen鍵選單結構</li>
+<li>⚡ 開啟設定視窗後支援繼續操作選單</li>
 <p><strong>修復：</strong></p>
-<li>🐛 解鎖DB時，更新顯示卡驅動至不支援的版本後第一次啟動OSH執行解鎖導致功耗異常的問題</li>
-<li>🐛 風扇轉速表錯誤校驗的問題</li>
-<li>🐛 啟動時Omen鍵選單未顯示已選擇的應用程式</li>
+<li>🐛 任務規劃程式無UserId限制導致多次啟動、登入前無法自動控制轉速</li>
+<li>🐛 切換語言後未關閉已開啟的視窗、選單</li>
+<li>🐛 Omen鍵已綁定目標應用時將Omen鍵設定為「開啟應用程式」模式無效</li>
+<li>🐛 模擬按鍵設定介面的「取消」點選無效</li>
+<li>🐛 Omen鍵已綁定模擬按鍵時將Omen鍵設定為「模擬按鍵」模式仍開啟設定介面</li>
+<li>🐛 Omen鍵已綁定模擬按鍵時將Omen鍵設定為「模擬按鍵」模式無效</li>
 </div>
 
 <p>本專案已開源至 Github：<a href='https://github.com/breadeding/OmenSuperHub'>https://github.com/breadeding/OmenSuperHub</a></p>
@@ -283,13 +291,17 @@ namespace OmenSuperHub {
 <h2>📦 OmenSuperHub v{Assembly.GetExecutingAssembly().GetName().Version} Changelog</h2>
 <div class='update-list'>
 <p><strong>New Features:</strong></p>
-<li>✨ Omen key support for launching UWP apps and binding key combinations <a href='https://github.com/breadeding/OmenSuperHub/pull/68'>(#68, shihuaidexianyu)</a></li>
+<li>✨ Click the OSH program icon to quickly toggle the floating window display.</a></li>
 <p><strong>Improvements:</strong></p>
-<li>⚡ Added curve UI adjustments for Quiet and Cool modes; improved descriptions for fan speed curves</li>
+<li>⚡ More compact Omen key menu structure</li>
+<li>⚡ Menu remains interactive after opening the settings window</li>
 <p><strong>Fixes:</strong></p>
-<li>🐛 Fixed an issue where unlocking caused abnormal power consumption when launching OSH for the first time after updating the GPU driver to an unsupported version</li>
-<li>🐛 Issue with fan speed reading errors</li>
-<li>🐛 Fixed an issue where the Omen key menu failed to display the selected app upon startup</li>
+<li>🐛 Task scheduler lacked a UserID restriction, causing multiple launches; fan speed could not be automatically controlled before login</li>
+<li>🐛 Open windows and menus were not closed after switching languages</li>
+<li>🐛 Setting the Omen key to ""Open Application"" mode had no effect when it was already bound to a target application</li>
+<li>🐛 Clicking ""Cancel"" in the simulated key settings interface did not work</li>
+<li>🐛 Setting the Omen key to ""Simulated Key"" mode still opened the settings interface when it was already bound to a simulated key</li>
+<li>🐛 Setting the Omen key to ""Simulated Key"" mode had no effect when it was already bound to a simulated key</li>
 </div>
 
 <p>This project is open-source on Github: <a href='https://github.com/breadeding/OmenSuperHub'>https://github.com/breadeding/OmenSuperHub</a></p>
