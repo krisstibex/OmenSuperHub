@@ -46,32 +46,24 @@ jobs:
 
           $tags = @($releases.tag_name)
 
-          $sameDayTags = $tags | Where-Object {
-            $_ -match "^v$([regex]::Escape($date))(\.\d+)?$"
-          }
+          $suffixes = @(
+            $tags |
+            Where-Object {
+              $_ -match "^v$([regex]::Escape($date))\.(\d+)$"
+            } |
+            ForEach-Object {
+              [int]$matches[1]
+            }
+          )
 
-          if ($sameDayTags.Count -eq 0) {
-            $version = $date
+          if ($suffixes.Count -eq 0) {
+            $suffix = 0
           }
           else {
-            $maxSuffix = 0
-
-            foreach ($tag in $sameDayTags) {
-              if ($tag -eq "v$date") {
-                if ($maxSuffix -lt 1) {
-                  $maxSuffix = 1
-                }
-              }
-              elseif ($tag -match "^v$([regex]::Escape($date))\.(\d+)$") {
-                $n = [int]$matches[1] + 1
-                if ($n -gt $maxSuffix) {
-                  $maxSuffix = $n
-                }
-              }
-            }
-
-            $version = "$date.$maxSuffix"
+            $suffix = ($suffixes | Measure-Object -Maximum).Maximum + 1
           }
+
+          $version = "$date.$suffix"
 
           Write-Host "Version: v$version"
           echo "version=$version" >> $env:GITHUB_OUTPUT
@@ -117,7 +109,7 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: OmenSuperHub v${{ steps.version.outputs.version }}
-          body: ""
+          body_path: .github/release.md
           generate_release_notes: false
           draft: false
           prerelease: false
