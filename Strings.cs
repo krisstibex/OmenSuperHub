@@ -62,7 +62,7 @@
     public static string PresetCustom1 => T("自定义预设1", "自定義預設1", "Custom 1");
     public static string PresetCustom2 => T("自定义预设2", "自定義預設2", "Custom 2");
     public static string PresetCustom3 => T("自定义预设3", "自定義預設3", "Custom 3");
-    public static string ActivePreset => T("当前预设", "目前預設", "Active Preset");
+    public static string ActivePreset => T("预设：", "預設：", "Preset: ");
     public static string RenamePreset => T("重命名", "重新命名", "Rename");
     public static string RenamePresetTitle => T("重命名预设", "重新命名預設", "Rename Preset");
     public static string RenamePresetPrompt => T("请输入新的预设名称：", "請輸入新的預設名稱：", "Please enter new preset name:");
@@ -255,6 +255,14 @@
     public static string MaxFrameRateMenu => T("最大帧率", "最大幀率", "Max Frame Rate");
 
     // DB 解锁相关
+    public static string UnavailableReasonTip(int seconds) => T(
+        $"正在解锁DB，暂时禁用此菜单，剩余{seconds}秒。",
+        $"正在解鎖DB，暫時停用此選單，剩餘{seconds}秒。",
+        $"Unlocking the database; this menu is temporarily disabled. {seconds} seconds remaining.");
+    public static string UnavailableRetryTip(int seconds, int count, int maxRetry) => T(
+        $"正在第{count}/{maxRetry}次重试解锁DB，暂时禁用此菜单，剩余{seconds}秒。",
+        $"正在第{count}/{maxRetry}次重試解鎖DB，暫時停用此選單，剩餘{seconds}秒。",
+        $"Retrying to unlock the DB (attempt {count}/{maxRetry}); this menu is temporarily disabled. {seconds} seconds remaining.");
     public static string DbUnlockCpuHighWarning => T("请在CPU低负载下解锁",
         "請在CPU低負載下解鎖", "Please unlock under low CPU load.");
     public static string DbUnlockFailed(float w) => T(
@@ -468,6 +476,10 @@
     public static string OmenKeyDefault => T("默认", "預設", "Default");
     public static string OmenKeyToggle => T("切换浮窗显示", "切換浮窗顯示", "Toggle Overlay");
     public static string OmenKeySwitchPreset => T("切换预设", "切換預設", "Switch Preset");
+    // 滚轮操作提示（置顶，不可点击）
+    public static string scrollHint => T("💡可在托盘图标上滚动鼠标切换预设",
+        "💡可在托盤圖示上滾動滑鼠切換預設",
+        "💡 Scroll on tray icon to switch preset");
     public static string OmenKeyPresetBalloonTitle => T("已切换预设", "已切換預設", "Preset Switched");
     public static string OmenKeyPresetBalloonText(string name) => T(
         $"当前预设：{name}",
@@ -584,6 +596,7 @@
     public static string MonitorCpuLabel => T("CPU", "CPU", "CPU");
     public static string MonitorGpuLabel => T("GPU", "GPU", "GPU");
     public static string MonitorFanLabel => T("风扇", "風扇", "Fan");
+    public static string MonitorPrepareLabel => T("数据获取中...", "數據獲取中...", "Retrieving data...");
 
     // ─────────────────────────────────────────────────────────────────────────
     // 硬件监控 — 自动转速模式下无法关闭监控的警告

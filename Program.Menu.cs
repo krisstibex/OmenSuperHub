@@ -54,6 +54,14 @@ namespace OmenSuperHub {
 
       BuildTrayMenu(trayIcon.ContextMenuStrip);
       UpdateTrayIconText();
+      // 延迟安装低级鼠标钩子，避免 SetWindowsHookEx 在启动时造成鼠标卡顿
+      var hookDelayTimer = new System.Windows.Forms.Timer { Interval = 200 };
+      hookDelayTimer.Tick += (s, e) => {
+        hookDelayTimer.Stop();
+        hookDelayTimer.Dispose();
+        InstallTrayScrollHook();
+      };
+      hookDelayTimer.Start();
 
       // Initialize tooltip update timer
       tooltipUpdateTimer = new System.Timers.Timer(1000); // Set interval to 1 second (low, default)
@@ -398,7 +406,7 @@ namespace OmenSuperHub {
       fanControlMenu.DropDownItems.Add(fanValueLabel);
       menu.Items.Add(fanControlMenu);
 
-      ToolStripMenuItem performanceControlMenu = new ToolStripMenuItem(Strings.PerfControl);
+      performanceControlMenu = new ToolStripMenuItem(Strings.PerfControl);
       // 图形模式
       if (NvGraphicsMode == GraphicsSwitcherMode.Optimus || NvGraphicsMode == GraphicsSwitcherMode.Hybrid) {
         var hotSwitchItem = CreateMenuItem(Strings.HotSwitch, null, (s, e) => {
@@ -818,32 +826,20 @@ namespace OmenSuperHub {
         maxFrameRateMenu.DropDownItems.Add(maxFrameRateValueLabel);
         performanceControlMenu.DropDownItems.Add(maxFrameRateMenu);
 
-        DBMenu = new ToolStripMenuItem(Strings.DbVersionMenu);
+        ToolStripMenuItem DBMenu = new ToolStripMenuItem(Strings.DbVersionMenu);
         if (platformSettings != null && platformSettings.TppSupport) {
           DBMenu.DropDownItems.Add(new ToolStripMenuItem(Strings.PerfDbTip) { Enabled = false });
           DBMenu.DropDownItems.Add(new ToolStripSeparator());
         }
-        DBMenu.DropDownItems.Add(CreateMenuItem(Strings.DbUnlocked, "DBGroup", (s, e) => {
-          if (MessageBox.Show(Application.OpenForms.OfType<HelpForm>().FirstOrDefault(), Strings.PerfDbUnlockWarning, Strings.DbUnlockTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) {
-            SetGpuPowerState(true, true);
-            if (isCPUPowerControlSupported)
-              SetCpuPowerLimit((byte)CPULimitDB);
-            DBVersion = 1;
-            ChangeDBVersion(DBVersion);
-            countDB = countDBInit;
-            DBMenu.Enabled = false;
-            SaveConfig("DBVersion");
-          }
-        }, false, Strings.PerfDbUnlockTooltip));
+        DBMenu.DropDownItems.Add(CreateMenuItem(Strings.DbUnlocked, "DBGroup", (s, e) => { }, false, Strings.PerfDbUnlockTooltip));
         DBMenu.DropDownItems.Add(CreateMenuItem(Strings.DbNormal, "DBGroup", (s, e) => {
           DBVersion = 2;
           countDB = 0;
-          DBMenu.Enabled = true;
+          performanceControlMenu.Enabled = true;
+          performanceControlMenu.ToolTipText = "";
           //ChangeDBVersion(DBVersion);
 
-          string deviceId = "\"ACPI\\NVDA0820\\NPCF\"";
-          string command = $"pnputil /enable-device {deviceId}";
-          ExecuteCommand(command);
+          ChangeDBState(true);
           SaveConfig("DBVersion");
         }, true, Strings.PerfDbNormalTooltip));
         performanceControlMenu.DropDownItems.Add(DBMenu);
@@ -1206,6 +1202,11 @@ namespace OmenSuperHub {
       };
       omenKeyPresetCandidatesMenu.DropDownOpening += (s, e) => {
         omenKeyPresetCandidatesMenu.DropDownItems.Clear();
+
+        omenKeyPresetCandidatesMenu.DropDownItems.Add(
+            new ToolStripMenuItem(Strings.scrollHint) { Enabled = false });
+        omenKeyPresetCandidatesMenu.DropDownItems.Add(new ToolStripSeparator());
+
         var selectedPresetKeys = GetOmenKeyPresetCandidateKeys();
         foreach (string presetKey in GetAvailablePresetKeys()) {
           string localPresetKey = presetKey;
@@ -2099,7 +2100,8 @@ namespace OmenSuperHub {
             MessageBox.Show(Application.OpenForms.OfType<HelpForm>().FirstOrDefault(), Strings.DbNo50Series, Strings.Hint, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             DBVersion = 2;
             countDB = 0;
-            DBMenu.Enabled = true;
+            performanceControlMenu.Enabled = true;
+            performanceControlMenu.ToolTipText = "";
             SaveConfig("DBVersion");
             UpdateCheckedState("DBGroup", Strings.DbNormal);
             return;
@@ -2109,7 +2111,8 @@ namespace OmenSuperHub {
             MessageBox.Show(Application.OpenForms.OfType<HelpForm>().FirstOrDefault(), Strings.PleaseConnectAC, Strings.Hint, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             DBVersion = 2;
             countDB = 0;
-            DBMenu.Enabled = true;
+            performanceControlMenu.Enabled = true;
+            performanceControlMenu.ToolTipText = "";
             SaveConfig("DBVersion");
             UpdateCheckedState("DBGroup", Strings.DbNormal);
             return;
@@ -2117,20 +2120,25 @@ namespace OmenSuperHub {
           if (!CheckDBVersion(1)) {
             DBVersion = 2;
             countDB = 0;
-            DBMenu.Enabled = true;
+            performanceControlMenu.Enabled = true;
+            performanceControlMenu.ToolTipText = "";
             SaveConfig("DBVersion");
             UpdateCheckedState("DBGroup", Strings.DbNormal);
             return;
           }
-          //if(CPUPower > CPULimitDB + 1) {
-          //  MessageBox.Show(Application.OpenForms.OfType<HelpForm>().FirstOrDefault(), Strings.DbUnlockCpuHighWarning, Strings.Hint, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-          //  DBVersion = 2;
-          //  countDB = 0;
-          //  DBMenu.Enabled = true;
-          //  SaveConfig("DBVersion");
-          //  UpdateCheckedState("DBGroup", Strings.DbNormal);
-          //  return;
-          //}
+          if (MessageBox.Show(Application.OpenForms.OfType<HelpForm>().FirstOrDefault(), Strings.PerfDbUnlockWarning, Strings.DbUnlockTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) {
+            DBVersion = 1;
+            ChangeDBVersion(DBVersion);
+            countDB = countDBInit;
+            // 启用DB驱动
+            ChangeDBState(true);
+            SetGpuPowerState(true, true);
+            performanceControlMenu.Enabled = false;
+            performanceControlMenu.ToolTipText = Strings.UnavailableReasonTip(countDB + 1);
+            SaveConfig("DBVersion");
+          } else {
+            return;
+          }
         }
         if (item.Text == Strings.DbNormal && !CheckDBVersion(2))
           return;

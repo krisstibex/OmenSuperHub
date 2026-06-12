@@ -169,7 +169,8 @@ namespace OmenSuperHub {
         //Console.WriteLine("任务二已创建：用户登录时重启。");
       }
 
-      CleanUpAndRemoveTasks();
+      // 整个清理操作异步化，不影响启动
+      System.Threading.Tasks.Task.Run(() => CleanUpAndRemoveTasks());
     }
 
     static void AutoStartDisable() {
@@ -297,10 +298,12 @@ namespace OmenSuperHub {
           maxCPUTemp = throttle;
         }
         if (hasNVIDIAGpu) {
-          throttle = GetGpuTemperatureTarget();
-          if (throttle > 50) {
-            maxGPUTemp = throttle;
-          }
+          System.Threading.Tasks.Task.Run(() => {
+            throttle = GetGpuTemperatureTarget();
+            if (throttle > 50) {
+              maxGPUTemp = throttle;
+            }
+          });
         }
       }
     }
@@ -1098,24 +1101,26 @@ namespace OmenSuperHub {
           ApplyPresetSettings("Restore");
 
           // ── DB 版本（仅启动时处理）────────────────────────────────────────────
-          if (hasNVIDIAGpu && DBMenu.Enabled) {
+          if (hasNVIDIAGpu && performanceControlMenu.Enabled) {
             DBVersion = (int)key.GetValue("DBVersion", 2);
             switch (DBVersion) {
               case 1:
                 if (IsAbove50Series() || !powerOnline || !CheckDBVersion(1)) {
                   DBVersion = 2;
-                  ExecuteCommand($"pnputil /enable-device \"ACPI\\NVDA0820\\NPCF\"");
+                  ChangeDBState(true);
                   UpdateCheckedState("DBGroup", Strings.DbNormal);
                 } else {
+                  countDB = countDBInit + 60;
+                  // 启用DB驱动
+                  ChangeDBState(true);
                   SetGpuPowerState(true, true);
-                  if (isCPUPowerControlSupported) SetCpuPowerLimit((byte)CPULimitDB);
-                  countDB = countDBInit;
-                  DBMenu.Enabled = false;
+                  performanceControlMenu.Enabled = false;
+                  performanceControlMenu.ToolTipText = Strings.UnavailableReasonTip(countDB + 1);
                   UpdateCheckedState("DBGroup", Strings.DbUnlocked);
                 }
                 break;
               case 2:
-                ExecuteCommand($"pnputil /enable-device \"ACPI\\NVDA0820\\NPCF\"");
+                ChangeDBState(true);
                 UpdateCheckedState("DBGroup", Strings.DbNormal);
                 break;
             }

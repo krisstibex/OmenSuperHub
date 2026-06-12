@@ -31,6 +31,52 @@ namespace OmenSuperHub {
     [DllImport("user32.dll")]
     static extern bool SetProcessDPIAware();
 
+    // ── 低级鼠标钩子（用于托盘图标滚轮切换预设）──────────────────────────
+    delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    static extern IntPtr GetModuleHandle(string lpModuleName);
+
+    // Shell_NotifyIconGetRect：获取托盘图标的屏幕矩形
+    [StructLayout(LayoutKind.Sequential)]
+    struct NOTIFYICONIDENTIFIER {
+      public uint cbSize;
+      public IntPtr hWnd;
+      public uint uID;
+      public Guid guidItem;
+    }
+
+    [DllImport("shell32.dll", SetLastError = true)]
+    static extern int Shell_NotifyIconGetRect(ref NOTIFYICONIDENTIFIER identifier, out RECT iconRect);
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct RECT { public int left, top, right, bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct MSLLHOOKSTRUCT {
+      public Point pt;
+      public int mouseData;
+      public int flags;
+      public int time;
+      public IntPtr dwExtraInfo;
+    }
+
+    const int WH_MOUSE_LL = 14;
+    const int WM_MOUSEWHEEL = 0x020A;
+
+    static IntPtr _mouseHook = IntPtr.Zero;
+    static LowLevelMouseProc _mouseHookProc; // 防止 GC 回收委托
+    static Control _invokeTarget;            // 专用 marshal 控件（句柄在安装钩子前已创建）
+
     static byte currentAnimSpeed = 1, currentAnimDirection = 0, currentAnimTheme = 0, currentAnimEffect = 2;
     // 单键RGB当前选中状态（用于菜单勾选，null/-1 表示未选择）
     static string perKeyStaticColorSel = null;
@@ -44,8 +90,8 @@ namespace OmenSuperHub {
     // 四分区/灯条 WMI 协议选择（默认 BasicFourZone；用户可在菜单中切换并持久化）
     static LightingControlInterface kbControlInterface = LightingControlInterface.BasicFourZone;
     static LightingControlInterface lbControlInterface = LightingControlInterface.Dojo;
-    static int DBVersion = 2, countDB = 0, countDBInit = 5, tryTimes = 0, CPULimitDB = 25;
-    static ToolStripMenuItem DBMenu;
+    static int DBVersion = 2, countDB = 0, countDBInit = 10, tryTimes = 0, maxRetry = 5, CPULimitDB = 20;
+    static ToolStripMenuItem performanceControlMenu;
     static int textSize = 40;
     static int countRestore = 0, gpuClock = 0, maxFrameRate = -1;
     static int alreadyRead = 0, alreadyReadCode = 1000;
@@ -157,60 +203,67 @@ namespace OmenSuperHub {
         }
         // 每版本仅显示一次
         if (alreadyRead != alreadyReadCode) {
-          if (Validation() == Strings.ValidationUnsupported) {
+          string validationResult = Validation();
+          if (validationResult == Strings.ValidationUnsupported) {
             var result = MessageBox.Show(Application.OpenForms.OfType<HelpForm>().FirstOrDefault(), Strings.ProductUnsupported, Strings.Warning, MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
             if (result != DialogResult.OK)
               return; // 退出程序
-          } else if (Validation() == Strings.ValidationUnsupportedHPProduct) {
+          } else if (validationResult == Strings.ValidationUnsupportedHPProduct) {
             var result = MessageBox.Show(Application.OpenForms.OfType<HelpForm>().FirstOrDefault(), Strings.ProductUnsupportedHP, Strings.Warning, MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
             if (result != DialogResult.OK)
               return; // 退出程序
-          } else if (Validation() == Strings.ValidationOldOmenProduct) {
+          } else if (validationResult == Strings.ValidationOldOmenProduct) {
             var result = MessageBox.Show(Application.OpenForms.OfType<HelpForm>().FirstOrDefault(), Strings.ProductOldOmen, Strings.Warning, MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
             if (result != DialogResult.OK)
               return; // 退出程序
           }
         }
 
-        kbType = GetKeyboardType();
-        systemSSID = DeviceModel.ThisSystemID; // DeviceModel.OmenPlatform.Name
-        deviceType = DeviceModel.DeviceType;
+        var t1 = System.Threading.Tasks.Task.Run(() => kbType = GetKeyboardType());
+        var t2 = System.Threading.Tasks.Task.Run(() => systemSSID = DeviceModel.ThisSystemID);
         //isCPUPowerControlSupported = IsPowerControlSupported(deviceType); // 似乎不准确
-        string sku = PerformanceControlHelper.GetPlatformSku(isInit: true);
-        platformSettings = PerformanceControlHelper.GetPlatformSettings(deviceType.ToString(), sku);
-        if (platformSettings != null) {
-          currentPreset = "PresetExtreme";
-          isCPUPowerControlSupported = true;
-        }
-        if (FourZoneSupportHelper.IsAnimationSupported(kbType, deviceType)) {
-          supportAni = true;
-        }
-        if (DeviceModel.OmenPlatform.Feature.Contains("DojoLighting")) {
-          supportDojo = true;
-          if (IsLightBarPlatform())
-            supportLightbar = true;
-        }
+        var t3 = System.Threading.Tasks.Task.Run(() => {
+          deviceType = DeviceModel.DeviceType; // DeviceModel.OmenPlatform.Name
+          string sku = PerformanceControlHelper.GetPlatformSku(isInit: true);
+          platformSettings = PerformanceControlHelper.GetPlatformSettings(deviceType.ToString(), sku);
+          if (platformSettings != null) {
+            currentPreset = "PresetExtreme";
+            isCPUPowerControlSupported = true;
+          }
+          InitPlatformMaxFanSpeed();
+        });
+        var t4 = System.Threading.Tasks.Task.Run(() => {
+          if (FourZoneSupportHelper.IsAnimationSupported(kbType, deviceType)) {
+            supportAni = true;
+          }
+        });
+        var t5 = System.Threading.Tasks.Task.Run(() => {
+          if (DeviceModel.OmenPlatform.Feature.Contains("DojoLighting")) {
+            supportDojo = true;
+            if (IsLightBarPlatform())
+              supportLightbar = true;
+          }
+        });
+        var t6 = System.Threading.Tasks.Task.Run(() => NvGraphicsMode = GetGfxMode());
+        var t7 = System.Threading.Tasks.Task.Run(() => hasAMDDiscreteGpu = HasAmdDiscreteGpu());
+        var t8 = System.Threading.Tasks.Task.Run(() => {
+          hasNVIDIAGpu = HasNvidiaGpu();
+          if (hasNVIDIAGpu) {
+            ExtractAndPreloadNativeDll("NvidiaApi.dll");
+            maxFrameRate = NvApiWrapper.NVAPI_GetMaxFrameRate();
+          }
+        });
+        var t9 = System.Threading.Tasks.Task.Run(() => SetUnleashMode()); // 固定为释放全部性能模式
+        var t10 = System.Threading.Tasks.Task.Run(() => Is3FanNb = IsThreeFanSupported());
+        var t11 = System.Threading.Tasks.Task.Run(() => isFanCleanSupported = IsCleanCreekSupported());
+        var t12 = System.Threading.Tasks.Task.Run(() => isFanLegacyCleanSupported = IsLegacyCleanCreekSupported());
+        var t13 = System.Threading.Tasks.Task.Run(() => monitorQuery());
+        var t14 = System.Threading.Tasks.Task.Run(() => isTwoBytePL4 = IsTwoBytePL4Supported());
+        var t15 = System.Threading.Tasks.Task.Run(() => SetBrowserEmulationForWebBrowser());
+        var t16 = System.Threading.Tasks.Task.Run(() => getOmenKeyTask());
+        System.Threading.Tasks.Task.WaitAll(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16);
 
-        NvGraphicsMode = GetGfxMode();
-        hasAMDDiscreteGpu = HasAmdDiscreteGpu();
-        hasNVIDIAGpu = HasNvidiaGpu();
-        if (hasNVIDIAGpu) {
-          ExtractAndPreloadNativeDll("NvidiaApi.dll");
-          maxFrameRate = NvApiWrapper.NVAPI_GetMaxFrameRate();
-        }
-        // 固定为释放全部性能模式
-        SetUnleashMode();
-        Is3FanNb = IsThreeFanSupported();
-        isFanCleanSupported = IsCleanCreekSupported();
-        isFanLegacyCleanSupported = IsLegacyCleanCreekSupported();
-
-        monitorQuery();
-
-        isTwoBytePL4 = IsTwoBytePL4Supported();
-
-        // Initialize tray icon
         InitMaxTemp();
-        InitPlatformMaxFanSpeed();
         LoadLanguageSetting();  // 必须在 InitTrayIcon 之前，使菜单使用正确语言
         InitTrayIcon();
 
@@ -237,13 +290,11 @@ namespace OmenSuperHub {
           }
         }, null, 100, 1000);
 
-        getOmenKeyTask();
         checkFloatingTimer = new System.Windows.Forms.Timer();
         checkFloatingTimer.Interval = 100;
         checkFloatingTimer.Tick += (s, e) => HandleOmenKeyAction();
         checkFloatingTimer.Start();
 
-        // Restore last setting
         RestoreConfig();
 
         if (alreadyRead != alreadyReadCode) {
@@ -297,7 +348,6 @@ namespace OmenSuperHub {
         //Console.WriteLine($"IsIntelGraphics: {OmenHsaClient.IsIntelGraphics()}");
 
         Logger.Info($"version: {version}");
-        SetBrowserEmulationForWebBrowser();
         Application.Run();
       }
     }
@@ -800,6 +850,93 @@ namespace OmenSuperHub {
       }
     }
 
+    // ── 托盘图标滚轮钩子 ─────────────────────────────────────────────────
+    static void InstallTrayScrollHook() {
+      if (_mouseHook != IntPtr.Zero) return;
+
+      // 创建专用 marshal 控件并强制创建窗口句柄，确保 BeginInvoke 可用
+      _invokeTarget = new Control();
+      _invokeTarget.CreateControl(); // 强制创建 HWND
+
+      _mouseHookProc = TrayScrollHookProc;
+      _mouseHook = SetWindowsHookEx(WH_MOUSE_LL, _mouseHookProc, GetModuleHandle(null), 0);
+    }
+
+    static void UninstallTrayScrollHook() {
+      if (_mouseHook == IntPtr.Zero) return;
+      UnhookWindowsHookEx(_mouseHook);
+      _mouseHook = IntPtr.Zero;
+      _invokeTarget?.Dispose();
+      _invokeTarget = null;
+    }
+
+    // 获取托盘图标屏幕矩形；失败时返回 Rectangle.Empty
+    static Rectangle GetTrayIconRect() {
+      try {
+        // NotifyIcon 内部 hWnd 通过反射取得
+        var windowField = typeof(NotifyIcon).GetField("window",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (windowField == null) return Rectangle.Empty;
+        var nativeWindow = windowField.GetValue(trayIcon) as System.Windows.Forms.NativeWindow;
+        if (nativeWindow == null) return Rectangle.Empty;
+        IntPtr hWnd = nativeWindow.Handle;
+
+        var idField = typeof(NotifyIcon).GetField("id",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        uint id = idField != null ? (uint)(int)idField.GetValue(trayIcon) : 1u;
+
+        var nid = new NOTIFYICONIDENTIFIER {
+          cbSize = (uint)Marshal.SizeOf(typeof(NOTIFYICONIDENTIFIER)),
+          hWnd = hWnd,
+          uID = id
+        };
+        RECT rc;
+        if (Shell_NotifyIconGetRect(ref nid, out rc) == 0) {
+          return Rectangle.FromLTRB(rc.left, rc.top, rc.right, rc.bottom);
+        }
+      } catch { }
+      return Rectangle.Empty;
+    }
+
+    static IntPtr TrayScrollHookProc(int nCode, IntPtr wParam, IntPtr lParam) {
+      if (nCode >= 0 && (int)wParam == WM_MOUSEWHEEL) {
+        var info = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+        Rectangle iconRect = GetTrayIconRect();
+
+        bool isOverTray = !iconRect.IsEmpty && iconRect.Contains(info.pt);
+
+        if (isOverTray) {
+          // mouseData 高 16 位为滚轮增量，向上为正
+          int delta = (short)((info.mouseData >> 16) & 0xFFFF);
+          // 用专用 marshal 控件切回 UI 线程（ContextMenuStrip 在首次打开前没有 HWND）
+          bool up = delta > 0;
+          _invokeTarget?.BeginInvoke(new Action(() => CyclePresetByScroll(up)));
+        }
+      }
+      return CallNextHookEx(_mouseHook, nCode, wParam, lParam);
+    }
+
+    // scrollUp=true 向上滚（候选列表向前）；false 向下滚（向后）
+    static void CyclePresetByScroll(bool scrollUp) {
+      // 右键菜单打开时不切换，避免误操作
+      if (trayIcon?.ContextMenuStrip != null && trayIcon.ContextMenuStrip.Visible) return;
+
+      var candidates = GetOmenKeyPresetCandidateKeys();
+      if (candidates.Count == 0) return;
+
+      int idx = candidates.IndexOf(currentPreset);
+      if (idx < 0) idx = 0;
+      int next = scrollUp
+          ? (idx - 1 + candidates.Count) % candidates.Count
+          : (idx + 1) % candidates.Count;
+      string targetPreset = candidates[next];
+      if (targetPreset != currentPreset) {
+        applyPresetLogic(targetPreset);
+      } else {
+        UpdateTrayIconText();
+      }
+    }
+
     static void TrayIcon_MouseClick(object sender, MouseEventArgs e) {
       if (e.Button == MouseButtons.Left) {
         ToggleFloatingBar();
@@ -896,7 +1033,9 @@ namespace OmenSuperHub {
 
       if (monitorFan)
         fanSpeedNow = GetFanLevel();
-      UpdateTrayIconText();
+      // 仅当鼠标悬停在托盘图标上时才刷新 tooltip 文字，避免无谓的字符串构建
+      if (!GetTrayIconRect().IsEmpty && GetTrayIconRect().Contains(Control.MousePosition))
+        UpdateTrayIconText();
       //Console.WriteLine("UpdateTooltip");
 
       // 同步数据到本地txt
@@ -929,38 +1068,47 @@ namespace OmenSuperHub {
       // 启用再禁用DB驱动
       if (countDB > 0) {
         countDB--;
+        // 提前判断是否符合条件
+        if (CPUPower > 0.01f && CPUPower < CPULimitDB) {
+          float[] limits = GetGpuPowerLimits();   // limits[0] = Current, limits[1] = Max
+          if (!powerOnline || Math.Abs(limits[1] - limits[0]) < 1f)
+            countDB = 0;
+        }
+        if (tryTimes == 0)
+          performanceControlMenu.ToolTipText = Strings.UnavailableReasonTip(countDB + 1);
+        else
+          performanceControlMenu.ToolTipText = Strings.UnavailableRetryTip(countDB + 1, tryTimes, maxRetry);
         if (countDB == 0) {
-          string deviceId = "\"ACPI\\NVDA0820\\NPCF\"";
-          string command = $"pnputil /disable-device {deviceId}";
-          ExecuteCommand(command);
+          ChangeDBState(false);
 
           float[] limits = GetGpuPowerLimits();   // limits[0] = Current, limits[1] = Max
           // 检查显卡当前功耗限制，离电时当作解锁成功
           if (powerOnline && Math.Abs(limits[1] - limits[0]) > 1f) {
             tryTimes++;
-            // 失败时重试一次
-            if (tryTimes == 2) {
+            // 失败时重试maxRetry次
+            if (tryTimes > maxRetry) {
               tryTimes = 0;
               if (CPUPower > CPULimitDB + 10)
                 MessageBox.Show(Application.OpenForms.OfType<HelpForm>().FirstOrDefault(), Strings.DbUnlockCpuHighWarning, Strings.Hint, MessageBoxButtons.OK, MessageBoxIcon.Warning);
               else
                 MessageBox.Show(Application.OpenForms.OfType<HelpForm>().FirstOrDefault(), Strings.DbUnlockFailed(limits[0]), Strings.Hint, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-              command = $"pnputil /enable-device {deviceId}";
-              ExecuteCommand(command);
+              ChangeDBState(true);
               DBVersion = 2;
               countDB = 0;
-              DBMenu.Enabled = true;
+              performanceControlMenu.Enabled = true;
+              performanceControlMenu.ToolTipText = "";
               SaveConfig("DBVersion");
               UpdateCheckedState("DBGroup", Strings.DbNormal);
             } else {
-              SetGpuPowerState(true, true);
-              if (isCPUPowerControlSupported)
-                SetCpuPowerLimit((byte)CPULimitDB);
               countDB = countDBInit;
+              // 启用DB驱动
+              ChangeDBState(true);
+              SetGpuPowerState(true, true);
             }
           } else {
             tryTimes = 0;
-            DBMenu.Enabled = true;
+            performanceControlMenu.Enabled = true;
+            performanceControlMenu.ToolTipText = "";
             if (autoStart == "off") {
               MessageBox.Show(Application.OpenForms.OfType<HelpForm>().FirstOrDefault(), Strings.DbUnlockSuccessNoAutoStart, Strings.Hint, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
@@ -973,10 +1121,7 @@ namespace OmenSuperHub {
             SetGpuPowerState(tgpPower == "on", ppabPower == "on", dState == "normal" ? 1 : 2);
           }
         } else if (countDB == countDBInit - 1) {
-          // 启用DB驱动
-          string deviceId = "\"ACPI\\NVDA0820\\NPCF\"";
-          string command = $"pnputil /enable-device {deviceId}";
-          ExecuteCommand(command);
+          if (isCPUPowerControlSupported) SetCpuPowerLimit((byte)CPULimitDB);
         }
       }
 
@@ -1257,11 +1402,27 @@ namespace OmenSuperHub {
     //生成监控信息
     static string monitorText() {
       string str = "";
-      if (monitorCPU)
-        str += $"CPU: {CPUTemp:F1}°C, {CPUPower:F1}W";
+      string pawnIOState = "";
+      if (monitorCPU) {
+        if (CPUPower > 0.01f)
+          str += $"CPU: {CPUTemp:F1}°C, {CPUPower:F1}W";
+        else {
+          if (!IsPawnIOInstalled())
+            pawnIOState = Strings.SysPawnIONotInstalled;
+          else
+            pawnIOState = GetPawnIOState();
+          if (pawnIOState == "RUNNING")
+            str += $"CPU: {Strings.MonitorPrepareLabel}";
+          else
+            str += $"CPU: PawnIO {pawnIOState}";
+        }
+      }
       if (monitorGPU) {
         if (str.Length > 0) str += "\n";
-        str += $"GPU: {GPUTemp:F1}°C, {GPUPower:F1}W";
+        if (pawnIOState == "RUNNING" && GPUPower < 0.01f)
+          str += $"GPU: {Strings.MonitorPrepareLabel}";
+        else
+          str += $"GPU: {GPUTemp:F1}°C, {GPUPower:F1}W";
       }
       if (monitorFan) {
         if (str.Length > 0) str += "\n";
@@ -1290,17 +1451,19 @@ namespace OmenSuperHub {
       return GetPresetDisplayName(currentPreset);
     }
 
-    static string GetActivePresetStatusText() {
-      return $"{Strings.ActivePreset}: {GetCurrentPresetDisplayName()}";
-    }
-
     static void UpdateTrayIconText() {
       if (trayIcon == null) return;
 
-      string text = GetActivePresetStatusText();
+      string text = "";
+      string presetName = GetCurrentPresetDisplayName();
       string monitor = monitorText();
-      if (!string.IsNullOrWhiteSpace(monitor))
-        text += "\n" + monitor;
+      if (Strings.ActivePreset.Length + presetName.Length + 1 + monitor.Length <= 63) {
+        text = $"{Strings.ActivePreset + presetName}\n{monitor}";
+      } else if (presetName.Length + 1 + monitor.Length <= 63) {
+        text = presetName + "\n" + monitor;
+      } else {
+        text = monitor;
+      }
 
       const int notifyIconTextLimit = 63;
       if (text.Length > notifyIconTextLimit)
@@ -1314,6 +1477,7 @@ namespace OmenSuperHub {
       if (OmenKeyActions.UsesPipe(omenKey)) {
         OmenKeyOff();
       }
+      UninstallTrayScrollHook(); // 卸载鼠标钩子
       tooltipUpdateTimer.Stop(); // 停止定时器
 
       //openComputer.Close();
