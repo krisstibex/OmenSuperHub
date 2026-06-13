@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
 using Hp.Bridge.Client.SDKs.McuSDK2.Common.DataStructure;
+using Hp.Bridge.Client.SDKs.PerformanceControl.DataStructure;
 using HP.Omen.Core.Common.NVidiaApi;
 using HP.Omen.Core.Model.Device.Enums;
 using HP.Omen.Core.Model.Device.Models;
@@ -84,13 +85,9 @@ namespace OmenSuperHub {
       string biosVersion = GetBiosVersion();
       sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem($"{Strings.SysBiosVersion}: {biosVersion}") { Enabled = false });
 
-      // PawnIO信息
-      string pawnIOState = "";
-      if (!IsPawnIOInstalled())
-        pawnIOState = Strings.SysPawnIONotInstalled;
-      else
-        pawnIOState = GetPawnIOState();
-      sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem($"{Strings.SysPawnIOState}: {pawnIOState}") { Enabled = false });
+      ToolStripMenuItem pawnIOStateMenu = null;
+      pawnIOStateMenu = new ToolStripMenuItem($"{Strings.SysPawnIOState}: ") { Enabled = false };
+      sysInfoMenu.DropDownItems.Add(pawnIOStateMenu);
 
       // CPU 完整型号
       string cpuModel = GetCpuModel();
@@ -98,14 +95,26 @@ namespace OmenSuperHub {
       if (maxCPUTemp.HasValue) {
         sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem($"{Strings.SysCpuTjMax}: {maxCPUTemp.Value}°C") { Enabled = false });
       }
-      ToolStripMenuItem gpuPowerLimitsMenu = null;
+
+      ToolStripMenuItem gpuModelMenu = null, gpuPowerLimitsMenu = null;
       if (hasNVIDIAGpu) {
-        sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem("GPU: " + GetGpuModelFromNvidiaSmi()) { Enabled = false });
+        gpuModelMenu = new ToolStripMenuItem("GPU: ") { Enabled = false };
+        sysInfoMenu.DropDownItems.Add(gpuModelMenu);
         if (maxGPUTemp.HasValue) {
           sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem($"{Strings.SysNvidiaTjMax}: {maxGPUTemp.Value}°C") { Enabled = false });
         }
         gpuPowerLimitsMenu = new ToolStripMenuItem($"{Strings.SysNvidiaPower}: --W / --W") { Enabled = false };
         sysInfoMenu.DropDownItems.Add(gpuPowerLimitsMenu);
+        System.Threading.Tasks.Task.Run(() => {
+          string gpuModel = GetGpuModelFromNvidiaSmi();
+          var limits = GetGpuPowerLimits();
+          string limitsText = limits[0] == -2f ? "--W / --W" : $"{limits[0]:F0}W / {limits[1]:F0}W";
+          Thread.Sleep(2000);
+          uiContext.Post(_ => {
+            gpuPowerLimitsMenu.Text = $"{Strings.SysNvidiaPower}: {limitsText}";
+            gpuModelMenu.Text = "GPU: " + gpuModel;
+          }, null);
+        });
       }
       irSensorMenu = new ToolStripMenuItem($"{Strings.SysIRSensor}: --°C") { Enabled = false };
       ambientSensorMenu = new ToolStripMenuItem($"{Strings.SysAmbient}: --°C") { Enabled = false };
@@ -116,7 +125,24 @@ namespace OmenSuperHub {
       sysInfoMenu.DropDownItems.Add(ambientSensorMenu);
       sysInfoMenu.DropDownItems.Add(pchSensorMenu);
       sysInfoMenu.DropDownItems.Add(vrSensorMenu);
-      sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem($"{Strings.SysAdapterPower}: {GetAdapterPower()}W") { Enabled = false });
+      ToolStripMenuItem adapterPowerMenu = null;
+      adapterPowerMenu = new ToolStripMenuItem($"{Strings.SysAdapterPower}: ") { Enabled = false };
+      sysInfoMenu.DropDownItems.Add(adapterPowerMenu);
+
+      System.Threading.Tasks.Task.Run(() => {
+        // PawnIO信息
+        string pawnIOState = "";
+        if (!IsPawnIOInstalled())
+          pawnIOState = Strings.SysPawnIONotInstalled;
+        else
+          pawnIOState = GetPawnIOState();
+        int adapterPower = GetAdapterPower();
+        Thread.Sleep(2000);
+        uiContext.Post(_ => {
+          pawnIOStateMenu.Text = $"{Strings.SysPawnIOState}: {pawnIOState}";
+          adapterPowerMenu.Text = $"{Strings.SysAdapterPower}: {adapterPower}W";
+        }, null);
+      });
 
       // 订阅 DropDownOpening 和 DropDownClosed 事件来控制是否更新信息
       sysInfoMenu.DropDownOpening += (s, e) => {
@@ -132,12 +158,16 @@ namespace OmenSuperHub {
         }
 
         System.Threading.Tasks.Task.Run(() => {
+          int irTemp = GetSensorTemperature(0);
+          int ambientTemp = GetSensorTemperature(1);
+          int pchTemp = GetSensorTemperature(2);
+          int vrTemp = GetSensorTemperature(3);
           // 更新 UI（必须在 UI 线程）
           menu.BeginInvoke(new Action(() => {
-            if (irSensorMenu != null) irSensorMenu.Text = $"{Strings.SysIRSensor}: {GetSensorTemperature(0)}°C";
-            if (ambientSensorMenu != null) ambientSensorMenu.Text = $"{Strings.SysAmbient}: {GetSensorTemperature(1)}°C";
-            if (pchSensorMenu != null) pchSensorMenu.Text = $"{Strings.SysPCH}: {GetSensorTemperature(2)}°C";
-            if (vrSensorMenu != null) vrSensorMenu.Text = $"{Strings.SysVR}: {GetSensorTemperature(3)}°C";
+            if (irSensorMenu != null) irSensorMenu.Text = $"{Strings.SysIRSensor}: {FormatSensorTemperature(irTemp)}";
+            if (ambientSensorMenu != null) ambientSensorMenu.Text = $"{Strings.SysAmbient}: {FormatSensorTemperature(ambientTemp)}";
+            if (pchSensorMenu != null) pchSensorMenu.Text = $"{Strings.SysPCH}: {FormatSensorTemperature(pchTemp)}";
+            if (vrSensorMenu != null) vrSensorMenu.Text = $"{Strings.SysVR}: {FormatSensorTemperature(vrTemp)}";
           }));
         });
 
@@ -563,17 +593,11 @@ namespace OmenSuperHub {
           SaveConfig("AcLoadLine");
         }, true));
         int maxSupportedLevel = GetLoadLineSupportLevels();
-        for (int level = 1; level <= maxSupportedLevel + 5; level++) {
+        for (int level = 1; level <= maxSupportedLevel; level++) {
           int currentLevel = level;
           string displayText = (180 - 10 * currentLevel).ToString();
           acLoadLineMenu.DropDownItems.Add(CreateMenuItem(displayText, "acLoadLineGroup", (s, e) => {
             acLoadline = currentLevel.ToString();
-            if (currentLevel > maxSupportedLevel) {
-              trayIcon.BalloonTipTitle = Strings.AcLoadLineBalloonTitle;
-              trayIcon.BalloonTipText = Strings.AcLoadLineBalloonText(maxSupportedLevel, currentLevel);
-              trayIcon.BalloonTipIcon = ToolTipIcon.Warning;
-              trayIcon.ShowBalloonTip(3000);
-            }
             SetLoadLine(currentLevel);
             SaveConfig("AcLoadLine");
           }, false));
@@ -823,6 +847,8 @@ namespace OmenSuperHub {
 
       // ---- 灯光控制 ----
       if (kbType >= 0) {
+        byte brightness = GetZoneBrightness();
+        var colors = GetZoneStaticColor();
         ToolStripMenuItem lightingControlMenu = new ToolStripMenuItem(Strings.LightingControl);
         if (supportDojo)
           kbControlInterface = LightingControlInterface.Dojo;
@@ -837,10 +863,10 @@ namespace OmenSuperHub {
         } else {
           lightingControlMenu.DropDownItems.Add(CreateMenuItem(Strings.LightingOn, "lightSwitch", (s1, e1) => {
             SetZoneBrightness(LightingDevice.Keyboard, 228);
-          }, GetZoneBrightness() == 228));
+          }, brightness == 228));
           lightingControlMenu.DropDownItems.Add(CreateMenuItem(Strings.LightingOff, "lightSwitch", (s1, e1) => {
             SetZoneBrightness(LightingDevice.Keyboard, 100);
-          }, GetZoneBrightness() == 100));
+          }, brightness == 100));
         }
 
         // ---------- 灯条 ----------
@@ -861,10 +887,6 @@ namespace OmenSuperHub {
 
         // ---------- 状态显示 ----------
         lightingControlMenu.DropDownItems.Add(new ToolStripSeparator());
-
-        // 提升为局部变量，供 DropDownOpening 引用
-        byte brightness = GetZoneBrightness();
-        var colors = GetZoneStaticColor();
 
         var brightnessItem = new ToolStripMenuItem($"{Strings.LightingBrightnessStatus}: {brightness}%") { Enabled = false };
         lightingControlMenu.DropDownItems.Add(brightnessItem);
@@ -2130,6 +2152,16 @@ namespace OmenSuperHub {
         }
       };
       return item;
+    }
+
+    /// <summary>
+    /// 将 GetSensorTemperature 的返回值格式化为显示字符串。
+    /// &lt;= 0 → 不支持；== 1 → 连接断开；其他 → "xx°C"
+    /// </summary>
+    static string FormatSensorTemperature(int value) {
+      if (value <= 0) return Strings.SysSensorUnsupported;
+      if (value == 1) return Strings.SysSensorDisconnected;
+      return $"{value} ℃";
     }
 
     static void UpdateCheckedState(string group, string itemText = null, ToolStripMenuItem menuItemToCheck = null) {
