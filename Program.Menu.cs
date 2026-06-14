@@ -78,11 +78,10 @@ namespace OmenSuperHub {
       menu.Closing += TrayMenu_Closing;
 
       ToolStripMenuItem sysInfoMenu = new ToolStripMenuItem(Strings.SysInfo);
-      sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem($"{Strings.SysModelName}: {DeviceModel.OmenPlatform.DisplayName}") { Enabled = false });
-      sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem($"{Strings.SysModelValidation}: {Validation()}") { Enabled = false });
+      sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem($"{Strings.SysModelName}: {deviceDisplayName}") { Enabled = false });
+      sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem($"{Strings.SysModelValidation}: {Validation(deviceDisplayName)}") { Enabled = false });
       sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem($"{Strings.SysBoardProduct}: {systemSSID}") { Enabled = false });
       // BIOS 版本
-      string biosVersion = GetBiosVersion();
       sysInfoMenu.DropDownItems.Add(new ToolStripMenuItem($"{Strings.SysBiosVersion}: {biosVersion}") { Enabled = false });
 
       ToolStripMenuItem pawnIOStateMenu = null;
@@ -131,7 +130,6 @@ namespace OmenSuperHub {
 
       System.Threading.Tasks.Task.Run(() => {
         // PawnIO信息
-        string pawnIOState = "";
         if (!IsPawnIOInstalled())
           pawnIOState = Strings.SysPawnIONotInstalled;
         else
@@ -724,7 +722,7 @@ namespace OmenSuperHub {
       ToolStripMenuItem dStateMenu = new ToolStripMenuItem(Strings.DStateSubMenu);
       dStateMenu.DropDownItems.Add(new ToolStripMenuItem(Strings.PerfDStateTip) { Enabled = false });
       dStateMenu.DropDownItems.Add(new ToolStripSeparator());
-      dStateMenu.DropDownItems.Add(CreateMenuItem(Strings.Normal, "dStateGroup", (s, e) => {
+      dStateMenu.DropDownItems.Add(CreateMenuItem(Strings.Standard, "dStateGroup", (s, e) => {
         dState = "normal";
         SetGpuPowerState(tgpPower == "on", ppabPower == "on", 1);
         SaveConfig("DState");
@@ -1359,12 +1357,12 @@ namespace OmenSuperHub {
       ToolStripMenuItem autoStartMenu = new ToolStripMenuItem(Strings.AutoStart);
       autoStartMenu.DropDownItems.Add(CreateMenuItem(Strings.Enable, "autoStartGroup", (s, e) => {
         autoStart = "on";
-        AutoStartEnable();
+        System.Threading.Tasks.Task.Run(() => AutoStartEnable());
         SaveConfig("AutoStart");
       }, false));
       autoStartMenu.DropDownItems.Add(CreateMenuItem(Strings.Disable, "autoStartGroup", (s, e) => {
         autoStart = "off";
-        AutoStartDisable();
+        System.Threading.Tasks.Task.Run(() => AutoStartDisable());
         SaveConfig("AutoStart");
       }, true));
       settingMenu.DropDownItems.Add(autoStartMenu);
