@@ -948,20 +948,20 @@ namespace OmenSuperHub {
     static void LoadMonitorMetricSettings(string presetKey) {
       bool globalShowCPUTemp = true;
       bool globalShowCPUPower = true;
-      bool globalShowCPUFrequency = true;
+      bool globalShowCPUFrequency = false;
       bool globalShowGPUTemp = true;
       bool globalShowGPUPower = true;
-      bool globalShowGPUFrequency = true;
+      bool globalShowGPUFrequency = false;
 
       try {
         using (RegistryKey globalKey = Registry.CurrentUser.OpenSubKey(@"Software\OmenSuperHub")) {
           if (globalKey != null) {
             globalShowCPUTemp = Convert.ToBoolean(globalKey.GetValue("ShowCPUTemp", true));
             globalShowCPUPower = Convert.ToBoolean(globalKey.GetValue("ShowCPUPower", true));
-            globalShowCPUFrequency = Convert.ToBoolean(globalKey.GetValue("ShowCPUFrequency", true));
+            globalShowCPUFrequency = Convert.ToBoolean(globalKey.GetValue("ShowCPUFrequency", false));
             globalShowGPUTemp = Convert.ToBoolean(globalKey.GetValue("ShowGPUTemp", true));
             globalShowGPUPower = Convert.ToBoolean(globalKey.GetValue("ShowGPUPower", true));
-            globalShowGPUFrequency = Convert.ToBoolean(globalKey.GetValue("ShowGPUFrequency", true));
+            globalShowGPUFrequency = Convert.ToBoolean(globalKey.GetValue("ShowGPUFrequency", false));
           }
         }
 

@@ -313,19 +313,14 @@ namespace OmenSuperHub {
 
     /// <summary>是否存在 NVIDIA 独显。</summary>
     public static bool HasNvidiaGpu() {
-      using (RegistryKey key =
-          Registry.LocalMachine.OpenSubKey(
-          @"SYSTEM\CurrentControlSet\Enum\PCI")) {
-        foreach (string device in key.GetSubKeyNames()) {
-          if (!device.StartsWith("VEN_10DE",
-              StringComparison.OrdinalIgnoreCase))
-            continue;
+      try {
+        var gpus = PhysicalGPU.GetPhysicalGPUs();
 
-          return true;
-        }
+        return gpus != null &&
+               gpus.Length > 0;
+      } catch {
+        return false;
       }
-
-      return false;
     }
 
     /// <summary>
