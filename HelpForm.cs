@@ -147,11 +147,12 @@ namespace OmenSuperHub {
 <h2>📦 OmenSuperHub v{Assembly.GetExecutingAssembly().GetName().Version} 更新说明</h2>
 <div class='update-list'>
 <p><strong>新增：</strong></p>
-<li>✨ 新增GPU核心与显存超频菜单</a></li>
+<li>✨ 新增CPU/GPU频率监控<a href='https://github.com/breadeding/OmenSuperHub/pull/76'> (#76, Helloqiyuan)</a></li>
 <p><strong>优化：</strong></p>
-<li>⚡ 优化更改预设后悬浮窗显示的延迟</li>
+<li>⚡ 优化浮窗显示自适应宽度<a href='https://github.com/breadeding/OmenSuperHub/pull/76'> (#76, Helloqiyuan)</a></li>
 <p><strong>修复：</strong></p>
-<li>🐛 修复加载热切换依赖失败导致的异常</li>
+<li>🐛 UMA模式未正确识别显卡是否存在</li>
+<li>🐛 仅使用滚轮调整滑块时不生效/不勾选的问题</li>
 </div>
 
 <p>本项目已开源至 Github：<a href='https://github.com/breadeding/OmenSuperHub'>https://github.com/breadeding/OmenSuperHub</a></p>
@@ -213,11 +214,12 @@ namespace OmenSuperHub {
 <h2>📦 OmenSuperHub v{Assembly.GetExecutingAssembly().GetName().Version} 更新說明</h2>
 <div class='update-list'>
 <p><strong>新增：</strong></p>
-<li>✨ 新增GPU核心與顯存超頻選單</a></li>
+<li>✨ 新增CPU/GPU頻率監控<a href='https://github.com/breadeding/OmenSuperHub/pull/76'> (#76, Helloqiyuan)</a></li>
 <p><strong>優化：</strong></p>
-<li>⚡ 最佳化更改預設後懸浮窗顯示的延遲</li>
+<li>⚡ 最佳化浮窗顯示自適應寬度<a href='https://github.com/breadeding/OmenSuperHub/pull/76'> (#76, Helloqiyuan)</a></li>
 <p><strong>修復：</strong></p>
-<li>🐛 修復載入熱切換依賴失敗所導致的異常</li>
+<li>🐛 UMA模式未正確辨識顯示卡是否存在</li>
+<li>🐛 僅使用滾輪調整滑桿時不生效/不勾選的問題</li>
 </div>
 
 <p>本專案已開源至 Github：<a href='https://github.com/breadeding/OmenSuperHub'>https://github.com/breadeding/OmenSuperHub</a></p>
@@ -279,11 +281,12 @@ namespace OmenSuperHub {
 <h2>📦 OmenSuperHub v{Assembly.GetExecutingAssembly().GetName().Version} Changelog</h2>
 <div class='update-list'>
 <p><strong>New Features:</strong></p>
-<li>✨ Added GPU core and VRAM overclocking menu</li>
+<li>✨ Added CPU/GPU frequency monitoring<a href='https://github.com/breadeding/OmenSuperHub/pull/76'> (#76, Helloqiyuan)</a></li>
 <p><strong>Improvements:</strong></p>
-<li>⚡ Optimized the display latency of the overlay after changing presets</li>
+<li>⚡ Optimize the adaptive width of floating window display<a href='https://github.com/breadeding/OmenSuperHub/pull/76'> (#76, Helloqiyuan)</a></li>
 <p><strong>Fixes:</strong></p>
-<li>🐛 Fixed an error caused by the failure to load hot-switching dependencies</li>
+<li>🐛 UMA mode failed to correctly detect the presence of a graphics card</li>
+<li>🐛 Issue where using only the mouse wheel to adjust the slider had no effect or failed to toggle the checkbox</li>
 </div>
 
 <p>This project is open-source on Github: <a href='https://github.com/breadeding/OmenSuperHub'>https://github.com/breadeding/OmenSuperHub</a></p>
